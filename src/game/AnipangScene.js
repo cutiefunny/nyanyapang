@@ -540,21 +540,27 @@ export class AnipangScene extends Phaser.Scene {
 
   explodeBomb(bombGem) {
     this.isProcessing = true;
-    this.explodeBombRecursive(bombGem.row, bombGem.col, new Set());
+    this.explodeBombRecursive(bombGem.row, bombGem.col, new Set(), 0);
+    // 폭발 애니메이션 진행 中 사용자 입력 허용
+    this.isProcessing = false;
     this.time.delayedCall(500, () => this.fillBoard());
   }
 
-  explodeBombRecursive(centerRow, centerCol, visited) {
+  explodeBombRecursive(centerRow, centerCol, visited, chainDepth = 0) {
     // 무한 재귀 방지: 이미 폭발한 위치 기록
     const key = `${centerRow},${centerCol}`;
     if (visited.has(key)) return;
     visited.add(key);
 
-    const range = 1;
+    // 연쇄 깊이에 따라 폭발 범위 계산
+    // chainDepth 0: range = 1 (3x3)
+    // chainDepth 1: range = 2 (4x4)
+    // chainDepth 2: range = 3 (5x5)
+    const range = 1 + chainDepth;
     const destroyedGems = [];
     const bombsToExplode = [];
 
-    // 3x3 범위 내의 모든 gem 찾기
+    // 확대된 범위 내의 모든 gem 찾기
     for (let r = centerRow - range; r <= centerRow + range; r++) {
         for (let c = centerCol - range; c <= centerCol + range; c++) {
             if (this.isValidSlot(r, c)) {
@@ -593,10 +599,10 @@ export class AnipangScene extends Phaser.Scene {
         this.showComboText(centerX, centerY, "BOOM!!");
     }
 
-    // 폭발 범위에 있던 bomb들을 시간 차를 두고 재귀적으로 폭발시킨다
+    // 폭발 범위에 있던 bomb들을 시간 차를 두고 재귀적으로 폭발시킨다 (범위 확대)
     bombsToExplode.forEach((bomb, index) => {
         this.time.delayedCall(200 * (index + 1), () => {
-            this.explodeBombRecursive(bomb.row, bomb.col, visited);
+            this.explodeBombRecursive(bomb.row, bomb.col, visited, chainDepth + 1);
         });
     });
   }
@@ -611,6 +617,9 @@ export class AnipangScene extends Phaser.Scene {
 
     dogGem.setDepth(100); 
     dogGem.play('dog_walk_anim');
+
+    // Dog 이동 애니메이션 중 사용자 입력 허용
+    this.isProcessing = false;
 
     this.tweens.add({
         targets: dogGem,
@@ -633,10 +642,10 @@ export class AnipangScene extends Phaser.Scene {
                         target.destroy();
                         this.game.events.emit('addScore', 300);
 
-                        // 파괴된 gem이 bomb이면 폭발 연쇄 처리
+                        // 파괴된 gem이 bomb이면 폭발 연쇄 처리 (4x4 범위)
                         if (isBomb) {
                             this.time.delayedCall(50, () => {
-                                this.explodeBombRecursive(targetRow, targetCol, new Set());
+                                this.explodeBombRecursive(targetRow, targetCol, new Set(), 1);
                             });
                         }
                     }
@@ -718,6 +727,9 @@ export class AnipangScene extends Phaser.Scene {
         this.cameras.main.flash(200, 255, 255, 255);
     }
 
+    // 매칭 폭발 애니메이션 중 사용자 입력 허용
+    this.isProcessing = false;
+
     this.time.delayedCall(200, () => this.fillBoard());
   }
 
@@ -768,11 +780,12 @@ export class AnipangScene extends Phaser.Scene {
       }
     }
 
+    // Gems 배열이 안정화되면 사용자 입력 허용
+    this.isProcessing = false;
+
     this.time.delayedCall(maxDuration + 150, () => {
       if (this.checkMatches().length > 0) {
         this.handleMatches();
-      } else {
-        this.isProcessing = false;
       }
     });
   }
