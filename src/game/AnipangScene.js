@@ -76,13 +76,19 @@ export class AnipangScene extends Phaser.Scene {
     // [제거] 기존 단색 배경 설정 제거
     // this.cameras.main.setBackgroundColor('#2d2d2d');
 
-    // [추가] 배경 이미지 설정
-    // 1. 이미지 추가 및 이름 설정 (onResize에서 찾기 위해)
+    // [추가] 배경 이미지 설정 — 비율 유지하며 'cover' 동작 (긴 축에 맞춰 크롭)
+    // 1. 이미지 추가 및 이름 설정
     const bg = this.add.image(this.scale.width / 2, this.scale.height / 2, 'background')
-                .setName('background');
+          .setName('background');
 
-    // 2. 화면 전체를 덮도록 크기 조절 (비율 유지 없이 강제로 맞춤)
-    bg.setDisplaySize(this.scale.width, this.scale.height);
+    // 2. 원본 텍스처 크기를 사용해 비율을 유지한 채로 화면을 덮도록 스케일링
+    const texW = bg.width;
+    const texH = bg.height;
+    const canvasW = this.scale.width;
+    const canvasH = this.scale.height;
+    const coverScale = Math.max(canvasW / texW, canvasH / texH);
+    bg.setScale(coverScale);
+    bg.setPosition(canvasW / 2, canvasH / 2);
 
     // 3. 불투명도 20% 적용
     bg.setAlpha(0.2);
