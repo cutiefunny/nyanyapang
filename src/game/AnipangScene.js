@@ -26,6 +26,12 @@ export class AnipangScene extends Phaser.Scene {
     this.isProcessing = false;
     this.comboCount = 0;
 
+    // 타이머 관련
+    this.timerStarted = false;
+    this.timeLeft = 60; // seconds
+    this._tickEvent = null;
+    this._endTimer = null;
+
     this.draggingGem = null;
     this.dragStartX = 0;
     this.dragStartY = 0;
@@ -151,8 +157,11 @@ export class AnipangScene extends Phaser.Scene {
     // 배경 이미지 리사이즈
     const bg = this.children.getByName('background');
     if (bg) {
+        const texW = bg.width;
+        const texH = bg.height;
+        const coverScale = Math.max(width / texW, height / texH);
+        bg.setScale(coverScale);
         bg.setPosition(width / 2, height / 2);
-        bg.setDisplaySize(width, height);
     }
 
     // 게임 재시작
@@ -211,9 +220,53 @@ export class AnipangScene extends Phaser.Scene {
 
   onGemDown(pointer, gem) {
     if (this.isProcessing) return;
+
+    // 최초 액션 시 타이머 시작
+    if (!this.timerStarted) {
+      this.startCountdown();
+    }
+
     this.draggingGem = gem;
     this.dragStartX = pointer.x;
     this.dragStartY = pointer.y;
+  }
+
+  startCountdown() {
+    if (this.timerStarted) return;
+    this.timerStarted = true;
+    this.timeLeft = 60;
+
+    // 1초마다 남은 시간 전송
+    this._tickEvent = this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        this.timeLeft -= 1;
+        if (this.timeLeft < 0) this.timeLeft = 0;
+        if (this.game && this.game.events) this.game.events.emit('tick', this.timeLeft);
+      }
+    });
+
+    // 60초 후 게임 종료
+    this._endTimer = this.time.delayedCall(60000, () => {
+      this.endGame();
+    });
+  }
+
+  endGame() {
+    // 입력 차단
+    this.isProcessing = true;
+    this.input.enabled = false;
+
+    // 정지: 모든 트윈 정지
+    this.tweens.killAll();
+
+    // 타이머 정리
+    if (this._tickEvent) this._tickEvent.remove(false);
+    if (this._endTimer) this._endTimer.remove(false);
+
+    // 게임 오버 이벤트 전달
+    if (this.game && this.game.events) this.game.events.emit('gameOver');
   }
 
   onPointerMove(pointer) {
@@ -487,26 +540,43 @@ export class AnipangScene extends Phaser.Scene {
 
   explodeBomb(bombGem) {
     this.isProcessing = true;
-    const centerRow = bombGem.row;
-    const centerCol = bombGem.col;
-    const range = 1;
+    this.explodeBombRecursive(bombGem.row, bombGem.col, new Set());
+    this.time.delayedCall(500, () => this.fillBoard());
+  }
 
+  explodeBombRecursive(centerRow, centerCol, visited) {
+    // 무한 재귀 방지: 이미 폭발한 위치 기록
+    const key = `${centerRow},${centerCol}`;
+    if (visited.has(key)) return;
+    visited.add(key);
+
+    const range = 1;
     const destroyedGems = [];
+    const bombsToExplode = [];
+
+    // 3x3 범위 내의 모든 gem 찾기
     for (let r = centerRow - range; r <= centerRow + range; r++) {
         for (let c = centerCol - range; c <= centerCol + range; c++) {
             if (this.isValidSlot(r, c)) {
                 const gem = this.gems[r][c];
                 if (gem && gem.active) {
                     destroyedGems.push(gem);
+                    // 파괴될 gem이 bomb이면 나중에 재귀적으로 폭발시키기
+                    if (gem.texture.key === 'bomb') {
+                        bombsToExplode.push({ row: gem.row, col: gem.col });
+                    }
                 }
             }
         }
     }
 
+    if (destroyedGems.length === 0) return;
+
     this.cameras.main.shake(300, 0.03);
     this.cameras.main.flash(200, 255, 100, 100);
     this.game.events.emit('addScore', destroyedGems.length * 200);
 
+    // 모든 gem 파괴
     destroyedGems.forEach(gem => {
         this.playMatchSound();
         this.createExplosionEffect(gem);
@@ -514,8 +584,21 @@ export class AnipangScene extends Phaser.Scene {
         gem.destroy();
     });
 
-    this.showComboText(bombGem.x, bombGem.y, "BOOM!!");
-    this.time.delayedCall(500, () => this.fillBoard());
+    // 메시지 표시
+    const centerX = this.getGemX(centerCol);
+    const centerY = this.getGemY(centerRow);
+    if (bombsToExplode.length > 0) {
+        this.showComboText(centerX, centerY, "CHAIN!!");
+    } else {
+        this.showComboText(centerX, centerY, "BOOM!!");
+    }
+
+    // 폭발 범위에 있던 bomb들을 시간 차를 두고 재귀적으로 폭발시킨다
+    bombsToExplode.forEach((bomb, index) => {
+        this.time.delayedCall(200 * (index + 1), () => {
+            this.explodeBombRecursive(bomb.row, bomb.col, visited);
+        });
+    });
   }
 
   activateDog(dogGem) {
@@ -539,11 +622,23 @@ export class AnipangScene extends Phaser.Scene {
                 const target = this.gems[row][c];
                 if (target && target.active) {
                     if (Math.abs(dogGem.x - target.x) < this.gemSize / 2) {
+                        // 파괴될 gem의 위치 저장 (bomb 폭발에 필요)
+                        const targetRow = target.row;
+                        const targetCol = target.col;
+                        const isBomb = target.texture.key === 'bomb';
+
                         this.playMatchSound();
                         this.createExplosionEffect(target);
                         this.gems[row][c] = null;
                         target.destroy();
                         this.game.events.emit('addScore', 300);
+
+                        // 파괴된 gem이 bomb이면 폭발 연쇄 처리
+                        if (isBomb) {
+                            this.time.delayedCall(50, () => {
+                                this.explodeBombRecursive(targetRow, targetCol, new Set());
+                            });
+                        }
                     }
                 }
             }

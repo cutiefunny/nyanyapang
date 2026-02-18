@@ -4,20 +4,102 @@ import './App.css'; // 기본 CSS는 비웁니다.
 
 function App() {
   const [score, setScore] = createSignal(0);
+  const [timeLeft, setTimeLeft] = createSignal(60);
+  const [gameOver, setGameOver] = createSignal(false);
 
   const handleScoreUpdate = (points) => {
     setScore((prev) => prev + points);
   };
 
+  const handleTick = (secondsLeft) => setTimeLeft(secondsLeft);
+  const handleGameOver = () => setGameOver(true);
+
   return (
     <div style={{ "text-align": "center", "font-family": "Arial, sans-serif", "padding": "20px" }}>
       <h1>1분 냐냐팡</h1>
-      
-      <div style={{ "margin-bottom": "20px", "font-size": "24px", "font-weight": "bold", "color": "#ffdb78" }}>
-        {score()}냥
+
+      <div style={{ display: 'flex', 'justify-content': 'center', gap: '24px', 'align-items': 'center' }}>
+        <div style={{ "margin-bottom": "20px", "font-size": "24px", "font-weight": "bold", "color": "#ffdb78" }}>
+          {score()}냥
+        </div>
+
+        <div style={{ "font-size": "20px", "color": "#fff" }}>
+          남은시간: {timeLeft()}초
+        </div>
       </div>
 
-      <GameCanvas onScoreUpdate={handleScoreUpdate} />
+      <div style={{ position: 'relative' }}>
+        <GameCanvas onScoreUpdate={handleScoreUpdate} onTick={handleTick} onGameOver={handleGameOver} />
+
+        {gameOver() && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            'justify-content': 'center',
+            'align-items': 'center',
+            'z-index': 1000
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)',
+              border: '4px solid #ffdb78',
+              'border-radius': '20px',
+              padding: '40px',
+              'text-align': 'center',
+              'box-shadow': '0 10px 40px rgba(0, 0, 0, 0.5)',
+              'max-width': '400px',
+              animation: 'slideIn 0.4s ease-out'
+            }}>
+              <h2 style={{ margin: '0 0 16px 0', color: '#ffdb78', 'font-size': '28px' }}>게임 종료</h2>
+              
+              <div style={{
+                'font-size': '48px',
+                'font-weight': 'bold',
+                color: '#ff7aa2',
+                margin: '24px 0 32px 0',
+                'text-shadow': '2px 2px 4px rgba(0, 0, 0, 0.5)'
+              }}>
+                {score()}냥
+              </div>
+
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: '14px 40px',
+                  'font-size': '18px',
+                  'font-weight': 'bold',
+                  'border-radius': '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #ffdb78 0%, #ffc857 100%)',
+                  color: '#000',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  'box-shadow': '0 4px 12px rgba(255, 219, 120, 0.3)',
+                  ':hover': { transform: 'scale(1.05)', 'box-shadow': '0 6px 16px rgba(255, 219, 120, 0.5)' }
+                }}
+              >
+                다시 시작
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style>
+        {`
+          @keyframes slideIn {
+            from {
+              opacity: 0;
+              transform: scale(0.8);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+        `}
+      </style>
     </div>
   );
 }

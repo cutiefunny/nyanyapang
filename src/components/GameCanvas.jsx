@@ -27,9 +27,18 @@ export default function GameCanvas(props) {
     gameInstance = new Phaser.Game(config);
 
     gameInstance.events.on('addScore', (score) => {
-        if (props.onScoreUpdate) {
-            props.onScoreUpdate(score);
-        }
+      if (props.onScoreUpdate) {
+        props.onScoreUpdate(score);
+      }
+    });
+
+    // 게임 타이머/종료 이벤트 포워딩
+    gameInstance.events.on('tick', (secondsLeft) => {
+      if (props.onTick) props.onTick(secondsLeft);
+    });
+
+    gameInstance.events.on('gameOver', () => {
+      if (props.onGameOver) props.onGameOver();
     });
   });
 
