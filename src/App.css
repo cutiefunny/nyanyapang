@@ -1,0 +1,10 @@
+/* Small App-specific styles referenced by App.jsx */
+.app-title {
+  margin: 0 0 12px 0;
+}
+.score-display {
+  margin-bottom: 16px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ff7aa2;
+}
