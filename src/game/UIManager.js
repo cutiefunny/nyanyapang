@@ -111,6 +111,7 @@ export class UIManager {
 
     if (this.scene.game && this.scene.game.events) {
       this.scene.game.events.emit('tick', this.scene.timeLeft);
+      this.scene.game.events.emit('timeBonus');
     }
 
     this.scene.cameras.main.flash(400, 255, 215, 0);
@@ -118,42 +119,23 @@ export class UIManager {
 
     const centerX = this.scene.scale.width / 2;
     const centerY = this.scene.scale.height / 2;
-    const bonusText = this.scene.add.text(centerX, centerY - 50, '+10초 보너스!', {
+    const bonusText = this.scene.add.text(centerX, centerY, '+10초', {
       fontFamily: 'Arial Black',
-      fontSize: '60px',
-      color: '#ffd700',
-      stroke: '#ff6b00',
-      strokeThickness: 8
-    }).setOrigin(0.5).setDepth(1000);
+      fontSize: '100px',
+      color: '#ffff00',
+      stroke: '#ff0000',
+      strokeThickness: 10,
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1000).setScale(0.5);
 
     this.scene.tweens.add({
       targets: bonusText,
-      scale: 1.5,
+      scale: 1.3,
       alpha: 0,
       y: centerY - 150,
-      duration: 1000,
-      ease: 'Power2',
+      duration: 1200,
+      ease: 'Elastic.easeOut',
       onComplete: () => bonusText.destroy()
     });
-
-    for (let i = 0; i < 20; i++) {
-      const angle = (i / 20) * Math.PI * 2;
-      const vx = Math.cos(angle) * 300;
-      const vy = Math.sin(angle) * 300;
-
-      const star = this.scene.add.text(centerX, centerY, '⭐', {
-        fontSize: '32px'
-      }).setOrigin(0.5).setDepth(999);
-
-      this.scene.tweens.add({
-        targets: star,
-        x: centerX + vx * 0.3,
-        y: centerY + vy * 0.3,
-        alpha: 0,
-        duration: 800,
-        ease: 'Power2.easeOut',
-        onComplete: () => star.destroy()
-      });
-    }
   }
 }

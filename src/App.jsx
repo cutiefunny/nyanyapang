@@ -8,6 +8,7 @@ function App() {
   const [timeLeft, setTimeLeft] = createSignal(60);
   const [gameOver, setGameOver] = createSignal(false);
   const [isMobile, setIsMobile] = createSignal(false);
+  const [timeBonusActive, setTimeBonusActive] = createSignal(false);
 
   // 윈도우 크기 감지
   createEffect(() => {
@@ -29,6 +30,11 @@ function App() {
 
   const handleTick = (secondsLeft) => setTimeLeft(secondsLeft);
   const handleGameOver = () => setGameOver(true);
+  
+  const handleTimeBonus = () => {
+    setTimeBonusActive(true);
+    setTimeout(() => setTimeBonusActive(false), 200);
+  };
 
   return (
     <div style={{ "text-align": "center", "font-family": "Arial, sans-serif"}}>
@@ -36,16 +42,16 @@ function App() {
         "width": isMobile() ? "300px" : "60vw", 
         "max-width": isMobile() ? "300px" : "500px",
         "height": "auto", 
-        "margin-bottom": "20px" 
+        "margin-bottom": "0px" 
       }} />
 
-      <div style={{ display: 'flex', 'justify-content': 'center', gap: '24px', 'align-items': 'center' }}>
-        <div style={{ "margin-bottom": "20px", "font-size": "24px", "font-weight": "bold", "color": "#ffdb78" }}>
-          {score()}냥
+      <div style={{ display: 'flex', 'justify-content': 'center', gap: '100px', 'align-items': 'center' }}>
+        <div style={{ "margin-bottom": "5px", "font-size": "28px", "font-weight": "bold", "color": "#ffdb78" }}>
+          {score()}
         </div>
 
-        <div style={{ "font-size": "20px", "color": "#fff" }}>
-          남은시간: {timeLeft()}초
+        <div style={{ "margin-bottom": "5px", "font-size": timeBonusActive() ? "38px" : "28px", "font-weight": "bold", "color": timeBonusActive() ? "#41c73c" : "#ffffff", "transition": "font-size 0.2s ease-in-out, color 0.2s ease-in-out" }}>
+          {timeLeft()}
         </div>
       </div>
 
@@ -54,7 +60,7 @@ function App() {
         "max-width": isMobile() ? "100%" : "600px",
         "margin": isMobile() ? "0" : "0 auto"
       }}>
-        <GameCanvas onScoreUpdate={handleScoreUpdate} onTick={handleTick} onGameOver={handleGameOver} />
+        <GameCanvas onScoreUpdate={handleScoreUpdate} onTick={handleTick} onGameOver={handleGameOver} onTimeBonus={handleTimeBonus} />
 
         {gameOver() && (
           <div style={{

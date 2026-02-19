@@ -40,6 +40,10 @@ export default function GameCanvas(props) {
     gameInstance.events.on('gameOver', () => {
       if (props.onGameOver) props.onGameOver();
     });
+
+    gameInstance.events.on('timeBonus', () => {
+      if (props.onTimeBonus) props.onTimeBonus();
+    });
   });
 
   onCleanup(() => {
