@@ -105,7 +105,6 @@ export class UIManager {
    */
   grantTimeBonus() {
     this.scene.timeLeft += 10;
-    if (this.scene.timeLeft > 60) this.scene.timeLeft = 60;
 
     if (this.scene.game && this.scene.game.events) {
       this.scene.game.events.emit('tick', this.scene.timeLeft);

@@ -266,11 +266,12 @@ export class AnipangScene extends Phaser.Scene {
         this.timeLeft -= 1;
         if (this.timeLeft < 0) this.timeLeft = 0;
         if (this.game && this.game.events) this.game.events.emit('tick', this.timeLeft);
+        
+        // 시간이 0이 되면 게임 종료
+        if (this.timeLeft <= 0) {
+          this.endGame();
+        }
       }
-    });
-
-    this._endTimer = this.time.delayedCall(60000, () => {
-      this.endGame();
     });
   }
 
