@@ -32,6 +32,10 @@ export class AnipangScene extends Phaser.Scene {
     this._tickEvent = null;
     this._endTimer = null;
 
+    // 점수 추적 (1만점마다 시간 보너스)
+    this.score = 0;
+    this.nextBonusThreshold = 10000;
+
     this.draggingGem = null;
     this.dragStartX = 0;
     this.dragStartY = 0;
@@ -147,6 +151,73 @@ export class AnipangScene extends Phaser.Scene {
     this.input.on('pointerup', this.onPointerUp, this);
   }
 
+  update() {
+    // 겹친 gem 감지 및 수정 (버그 방지)
+    this.fixOverlappingGems();
+  }
+
+  fixOverlappingGems() {
+    // 위치가 겹친 gem들 찾기
+    const positionMap = new Map();
+    
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.gems[row][col];
+        if (gem && gem.active) {
+          const key = `${Math.round(gem.x)},${Math.round(gem.y)}`;
+          if (!positionMap.has(key)) {
+            positionMap.set(key, []);
+          }
+          positionMap.get(key).push({ gem, row, col });
+        }
+      }
+    }
+
+    // 같은 위치에 여러 gem이 있으면 depth가 낮은 것을 빈 곳으로 이동
+    positionMap.forEach((gems) => {
+      if (gems.length > 1) {
+        // depth가 낮은 gem 정렬
+        gems.sort((a, b) => a.gem.depth - b.gem.depth);
+        const lowestGem = gems[0];
+        
+        // 가장 가까운 빈 칸 찾기
+        let closestEmptyRow = -1, closestEmptyCol = -1;
+        let minDistance = Infinity;
+
+        for (let r = 0; r < this.boardSize.rows; r++) {
+          for (let c = 0; c < this.boardSize.cols; c++) {
+            if (this.gems[r][c] === null) {
+              const distance = Math.abs(r - lowestGem.row) + Math.abs(c - lowestGem.col);
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestEmptyRow = r;
+                closestEmptyCol = c;
+              }
+            }
+          }
+        }
+
+        // 빈 칸이 있으면 이동
+        if (closestEmptyRow !== -1) {
+          this.gems[lowestGem.row][lowestGem.col] = null;
+          this.gems[closestEmptyRow][closestEmptyCol] = lowestGem.gem;
+          lowestGem.gem.row = closestEmptyRow;
+          lowestGem.gem.col = closestEmptyCol;
+          
+          // 트윈 정지 후 부드럽게 이동
+          this.tweens.killTweensOf(lowestGem.gem);
+          this.tweens.add({
+            targets: lowestGem.gem,
+            x: this.getGemX(closestEmptyCol),
+            y: this.getGemY(closestEmptyRow),
+            duration: 300,
+            ease: 'Power2'
+          });
+        }
+      }
+    });
+  }
+
   // [수정] onResize에서 배경 이미지 크기 조절 추가
   onResize(gameSize) {
     const width = gameSize.width;
@@ -216,6 +287,78 @@ export class AnipangScene extends Phaser.Scene {
     
     this.gems[row][col] = gem;
     return gem;
+  }
+
+  addScore(points) {
+    this.score += points;
+    // Phaser 게임 인스턴스를 통해 UI에 점수 이벤트 전달
+    if (this.game && this.game.events) {
+      this.game.events.emit('addScore', points);
+    }
+
+    // 1만점마다 시간 보너스 체크
+    if (this.score >= this.nextBonusThreshold) {
+      this.grantTimeBonus();
+      this.nextBonusThreshold += 10000; // 다음 보너스: 2만점, 3만점...
+    }
+  }
+
+  grantTimeBonus() {
+    // 시간 10초 증가
+    this.timeLeft += 10;
+    if (this.timeLeft > 60) this.timeLeft = 60; // 최대 60초로 제한 (원한다면 조정)
+
+    // 시간 업데이트 이벤트 전달
+    if (this.game && this.game.events) {
+      this.game.events.emit('tick', this.timeLeft);
+    }
+
+    // 시각적 효과
+    // 1. 카메라 플래시 (황금색)
+    this.cameras.main.flash(400, 255, 215, 0);
+    this.cameras.main.shake(300, 0.05);
+
+    // 2. 보너스 텍스트 표시
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+    const bonusText = this.add.text(centerX, centerY - 50, '+10초 보너스!', {
+      fontFamily: 'Arial Black',
+      fontSize: '60px',
+      color: '#ffd700',
+      stroke: '#ff6b00',
+      strokeThickness: 8
+    }).setOrigin(0.5).setDepth(1000);
+
+    this.tweens.add({
+      targets: bonusText,
+      scale: 1.5,
+      alpha: 0,
+      y: centerY - 150,
+      duration: 1000,
+      ease: 'Power2',
+      onComplete: () => bonusText.destroy()
+    });
+
+    // 3. 파티클 효과
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * Math.PI * 2;
+      const vx = Math.cos(angle) * 300;
+      const vy = Math.sin(angle) * 300;
+
+      const star = this.add.text(centerX, centerY, '⭐', {
+        fontSize: '32px'
+      }).setOrigin(0.5).setDepth(999);
+
+      this.tweens.add({
+        targets: star,
+        x: centerX + vx * 0.3,
+        y: centerY + vy * 0.3,
+        alpha: 0,
+        duration: 800,
+        ease: 'Power2.easeOut',
+        onComplete: () => star.destroy()
+      });
+    }
   }
 
   onGemDown(pointer, gem) {
@@ -384,16 +527,20 @@ export class AnipangScene extends Phaser.Scene {
     this.isProcessing = true;
     this.comboCount = 0;
 
-    const tempRow = gem1.row;
-    const tempCol = gem1.col;
-    
+    // 원래 위치 저장 (역교환 시 필요)
+    const gem1OriginalRow = gem1.row;
+    const gem1OriginalCol = gem1.col;
+    const gem2OriginalRow = gem2.row;
+    const gem2OriginalCol = gem2.col;
+
+    // 배열과 gem 객체 위치 교환
     this.gems[gem1.row][gem1.col] = gem2;
     this.gems[gem2.row][gem2.col] = gem1;
 
-    gem1.row = gem2.row;
-    gem1.col = gem2.col;
-    gem2.row = tempRow;
-    gem2.col = tempCol;
+    gem1.row = gem2OriginalRow;
+    gem1.col = gem2OriginalCol;
+    gem2.row = gem1OriginalRow;
+    gem2.col = gem1OriginalCol;
 
     this.tweens.add({
       targets: [gem1, gem2],
@@ -405,22 +552,23 @@ export class AnipangScene extends Phaser.Scene {
         if (this.checkMatches().length > 0) {
           this.handleMatches();
         } else {
-          this.swapGemsReverse(gem1, gem2);
+          // 역교환: 원래 위치로 복원
+          this.swapGemsReverse(gem1, gem2, gem1OriginalRow, gem1OriginalCol, gem2OriginalRow, gem2OriginalCol);
         }
       }
     });
   }
 
-  swapGemsReverse(gem1, gem2) {
-    this.gems[gem1.row][gem1.col] = gem2;
-    this.gems[gem2.row][gem2.col] = gem1;
+  swapGemsReverse(gem1, gem2, gem1OrigRow, gem1OrigCol, gem2OrigRow, gem2OrigCol) {
+    // 배열 복원: 원래 위치로 돌려놓기
+    this.gems[gem1OrigRow][gem1OrigCol] = gem1;
+    this.gems[gem2OrigRow][gem2OrigCol] = gem2;
 
-    const tempRow = gem1.row;
-    const tempCol = gem1.col;
-    gem1.row = gem2.row;
-    gem1.col = gem2.col;
-    gem2.row = tempRow;
-    gem2.col = tempCol;
+    // gem 객체의 row/col 복원
+    gem1.row = gem1OrigRow;
+    gem1.col = gem1OrigCol;
+    gem2.row = gem2OrigRow;
+    gem2.col = gem2OrigCol;
 
     this.tweens.add({
       targets: [gem1, gem2],
@@ -580,7 +728,7 @@ export class AnipangScene extends Phaser.Scene {
 
     this.cameras.main.shake(300, 0.03);
     this.cameras.main.flash(200, 255, 100, 100);
-    this.game.events.emit('addScore', destroyedGems.length * 200);
+    this.addScore(destroyedGems.length * 200);
 
     // 모든 gem 파괴
     destroyedGems.forEach(gem => {
@@ -640,7 +788,7 @@ export class AnipangScene extends Phaser.Scene {
                         this.createExplosionEffect(target);
                         this.gems[row][c] = null;
                         target.destroy();
-                        this.game.events.emit('addScore', 300);
+                        this.addScore(300);
 
                         // 파괴된 gem이 bomb이면 폭발 연쇄 처리 (4x4 범위)
                         if (isBomb) {
@@ -699,7 +847,7 @@ export class AnipangScene extends Phaser.Scene {
 
     this.comboCount++;
     const score = matches.length * 100 * this.comboCount;
-    this.game.events.emit('addScore', score);
+    this.addScore(score);
 
     let centerX = 0, centerY = 0;
     matches.forEach(gem => {
@@ -786,7 +934,51 @@ export class AnipangScene extends Phaser.Scene {
     this.time.delayedCall(maxDuration + 150, () => {
       if (this.checkMatches().length > 0) {
         this.handleMatches();
+      } else {
+        // 모든 애니메이션 완료 후 빈칸 안전 체크 및 정리
+        this.time.delayedCall(100, () => this.enforceNoEmptySlots());
       }
     });
+  }
+
+  enforceNoEmptySlots() {
+    // 전체 보드에서 빈칸 감지
+    const emptySlots = [];
+    
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        if (this.gems[row][col] === null) {
+          emptySlots.push({ row, col });
+        }
+      }
+    }
+
+    // 빈칸이 있으면 처리
+    if (emptySlots.length > 0) {
+      // 빈칸도 destroyed 취급하고 점수 처리
+      this.addScore(emptySlots.length * 50);
+
+      // 빈칸 채우기
+      emptySlots.forEach(({ row, col }) => {
+        const type = Phaser.Math.RND.pick(this.gemTypes);
+        const startY = this.getGemY(row) - this.gemSize * 2;
+        const gem = this.spawnGem(row, col, type);
+        gem.y = startY;
+
+        this.tweens.add({
+          targets: gem,
+          y: this.getGemY(row),
+          duration: 400,
+          ease: 'Bounce.easeOut'
+        });
+      });
+
+      // 새로운 gem 채우기 완료 후 다시 매칭 체크
+      this.time.delayedCall(500, () => {
+        if (this.checkMatches().length > 0) {
+          this.handleMatches();
+        }
+      });
+    }
   }
 }
