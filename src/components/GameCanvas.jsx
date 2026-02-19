@@ -7,9 +7,26 @@ export default function GameCanvas(props) {
   let gameInstance;
   let retryAttempt = 0;
 
+  const sendLog = (message, level = 'info') => {
+    console.log(`[${level.toUpperCase()}] [Phaser] ${message}`);
+    
+    // Vercel 로그에도 전송
+    fetch('/api/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        message, 
+        level,
+        userAgent: navigator.userAgent 
+      })
+    }).catch(() => {
+      // API 호출 실패는 무시
+    });
+  };
+
   onMount(() => {
     if (!gameContainer) {
-      console.warn('Game container not mounted');
+      sendLog('Game container not mounted', 'warn');
       return;
     }
 
@@ -34,11 +51,11 @@ export default function GameCanvas(props) {
         callbacks: {
           postBoot: (game) => {
             const rendererType = game.renderer.type === Phaser.CANVAS ? 'CANVAS' : 'WEBGL';
-            console.log('[Phaser] Booted with renderer:', rendererType);
+            sendLog(`Booted with renderer: ${rendererType}`, 'info');
             
             // WebGL 생성 후 context 검증
             if (rendererType !== 'CANVAS' && !forceRenderer && !game.renderer.gl) {
-              console.warn('[Phaser] WebGL context invalid, falling back to Canvas...');
+              sendLog('WebGL context invalid, falling back to Canvas...', 'warn');
               setTimeout(() => {
                 game.destroy(true);
                 createGame(Phaser.CANVAS);
@@ -50,7 +67,7 @@ export default function GameCanvas(props) {
 
       try {
         gameInstance = new Phaser.Game(config);
-        console.log('[Phaser] Game created successfully');
+        sendLog('Game created successfully', 'info');
         
         // 이벤트 리스너 등록
         gameInstance.events.on('addScore', (score) => {
@@ -66,11 +83,11 @@ export default function GameCanvas(props) {
           if (props.onTimeBonus) props.onTimeBonus();
         });
       } catch (err) {
-        console.error('[Phaser] Creation failed:', err);
+        sendLog(`Creation failed: ${err.message}`, 'error');
         retryAttempt++;
         
         if (retryAttempt <= 2 && !forceRenderer) {
-          console.warn('[Phaser] Retrying with Canvas renderer...');
+          sendLog('Retrying with Canvas renderer...', 'warn');
           createGame(Phaser.CANVAS);
           return;
         }
