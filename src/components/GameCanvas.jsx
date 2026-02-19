@@ -5,45 +5,100 @@ import { AnipangScene } from '../game/AnipangScene';
 export default function GameCanvas(props) {
   let gameContainer;
   let gameInstance;
+  let retryAttempt = 0;
 
   onMount(() => {
-    const config = {
-      type: Phaser.AUTO,
-      // 부모 컨테이너의 크기에 맞춰서 100% 채움
-      scale: {
-        mode: Phaser.Scale.RESIZE, 
-        parent: gameContainer,
-        width: '100%',
-        height: '100%',
-        autoCenter: Phaser.Scale.CENTER_BOTH
-      },
-      backgroundColor: '#2d2d2d',
-      physics: {
-        default: 'arcade',
-      },
-      scene: [AnipangScene],
+    if (!gameContainer) {
+      console.warn('Game container not mounted');
+      return;
+    }
+
+    const parentWidth = gameContainer.clientWidth || window.innerWidth;
+    const parentHeight = gameContainer.clientHeight || window.innerHeight;
+
+    const createGame = (forceRenderer = null) => {
+      const config = {
+        type: forceRenderer || Phaser.AUTO,
+        scale: {
+          mode: Phaser.Scale.FIT,
+          parent: gameContainer,
+          width: parentWidth,
+          height: parentHeight,
+          autoCenter: Phaser.Scale.CENTER_BOTH
+        },
+        backgroundColor: '#2d2d2d',
+        physics: {
+          default: 'arcade',
+        },
+        scene: [AnipangScene],
+        callbacks: {
+          postBoot: (game) => {
+            const rendererType = game.renderer.type === Phaser.CANVAS ? 'CANVAS' : 'WEBGL';
+            console.log('[Phaser] Booted with renderer:', rendererType);
+            
+            // WebGL 생성 후 context 검증
+            if (rendererType !== 'CANVAS' && !forceRenderer && !game.renderer.gl) {
+              console.warn('[Phaser] WebGL context invalid, falling back to Canvas...');
+              setTimeout(() => {
+                game.destroy(true);
+                createGame(Phaser.CANVAS);
+              }, 100);
+            }
+          }
+        }
+      };
+
+      try {
+        gameInstance = new Phaser.Game(config);
+        console.log('[Phaser] Game created successfully');
+        
+        // 이벤트 리스너 등록
+        gameInstance.events.on('addScore', (score) => {
+          if (props.onScoreUpdate) props.onScoreUpdate(score);
+        });
+        gameInstance.events.on('tick', (secondsLeft) => {
+          if (props.onTick) props.onTick(secondsLeft);
+        });
+        gameInstance.events.on('gameOver', () => {
+          if (props.onGameOver) props.onGameOver();
+        });
+        gameInstance.events.on('timeBonus', () => {
+          if (props.onTimeBonus) props.onTimeBonus();
+        });
+      } catch (err) {
+        console.error('[Phaser] Creation failed:', err);
+        retryAttempt++;
+        
+        if (retryAttempt <= 2 && !forceRenderer) {
+          console.warn('[Phaser] Retrying with Canvas renderer...');
+          createGame(Phaser.CANVAS);
+          return;
+        }
+        
+        // 최종 실패
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:absolute; top:0; left:0; right:0; padding:16px; color:#fff; background:rgba(0,0,0,0.8); text-align:center; font-size:14px;';
+        errorDiv.textContent = '게임 렌더러 초기화 실패. 브라우저 업데이트 후 재시도해주세요.';
+        gameContainer.appendChild(errorDiv);
+      }
     };
 
-    gameInstance = new Phaser.Game(config);
+    // Auto로 먼저 시도
+    createGame();
 
-    gameInstance.events.on('addScore', (score) => {
-      if (props.onScoreUpdate) {
-        props.onScoreUpdate(score);
+    // 사운드 재생 가능하도록 첫 터치 시 오디오 context resume
+    const unlockAudio = () => {
+      try {
+        if (gameInstance?.sound?.context?.resume) {
+          gameInstance.sound.context.resume().catch(() => {});
+        }
+      } catch (e) {
+        // 무시
       }
-    });
-
-    // 게임 타이머/종료 이벤트 포워딩
-    gameInstance.events.on('tick', (secondsLeft) => {
-      if (props.onTick) props.onTick(secondsLeft);
-    });
-
-    gameInstance.events.on('gameOver', () => {
-      if (props.onGameOver) props.onGameOver();
-    });
-
-    gameInstance.events.on('timeBonus', () => {
-      if (props.onTimeBonus) props.onTimeBonus();
-    });
+    };
+    
+    window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+    window.addEventListener('mousedown', unlockAudio, { once: true });
   });
 
   onCleanup(() => {
@@ -54,13 +109,13 @@ export default function GameCanvas(props) {
 
   return (
     <div 
-      ref={gameContainer} 
+      ref={el => (gameContainer = el)}
       id="game-container" 
       style={{ 
         width: '100%', 
-        height: '80vh', // 모바일에서 스크롤 없이 보이도록 높이 조정
+        height: '80vh',
         overflow: 'hidden',
-        "touch-action": "none" // 모바일 터치 시 브라우저 스크롤 방지
+        "touch-action": "none"
       }} 
     />
   );
