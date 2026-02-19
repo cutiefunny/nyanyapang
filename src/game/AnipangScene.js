@@ -22,6 +22,8 @@ import { BoardManager } from './BoardManager';
 import { MatchChecker } from './MatchChecker';
 import { ExplosionManager } from './ExplosionManager';
 import { UIManager } from './UIManager';
+import { GAME_CONFIG, COMBO_CONFIG, SCORE_CONFIG, ANIMATION_CONFIG, SOUND_CONFIG, DRAG_CONFIG } from './GameConstants';
+const BOARD_CHECK_CONFIG = { CHECK_INTERVAL: 5000 }; // 5초 체크 간격
 
 export class AnipangScene extends Phaser.Scene {
   constructor() {
@@ -44,7 +46,7 @@ export class AnipangScene extends Phaser.Scene {
 
     // 점수
     this.score = 0;
-    this.nextBonusThreshold = 10000;
+    this.nextBonusThreshold = SCORE_CONFIG.BONUS_THRESHOLD;
 
     // 사운드
     this.soundEnabled = true;
@@ -55,7 +57,7 @@ export class AnipangScene extends Phaser.Scene {
     this.dragStartY = 0;
 
     // Gem 설정
-    this.gemTypes = ['gem1', 'gem2', 'gem3', 'gem4', 'gem5', 'gem6'];
+    this.gemTypes = GAME_CONFIG.GEM_TYPES;
     
     this.particleColors = {
       'gem1': 0xff0000, 'gem2': 0x00ff00, 'gem3': 0x0000ff,
@@ -148,7 +150,7 @@ export class AnipangScene extends Phaser.Scene {
     this.boardManager.createBoard();
     
     // BGM 재생
-    this.sound.play('bgm', { loop: true, volume: 0.5 });
+    this.sound.play('bgm', { loop: true, volume: SOUND_CONFIG.BGM_VOLUME });
     
     // UI 버튼
     this.uiManager.createSoundToggleButton();
@@ -160,11 +162,12 @@ export class AnipangScene extends Phaser.Scene {
   }
 
   update() {
+    // 겹친 gem 감지 및 수정 (매 프레임)
     this.boardManager.fixOverlappingGems();
     
-    // 5초마다 보드 상태 체크
+    // 정기적 보드 체크: 빈칸 + 중복 gem 감지
     this.boardCheckTimer += this.game.loop.delta;
-    if (this.boardCheckTimer >= 5000) {
+    if (this.boardCheckTimer >= BOARD_CHECK_CONFIG.CHECK_INTERVAL) {
       this.boardCheckTimer = 0;
       this.checkBoardEmptySpaces();
     }
@@ -197,24 +200,21 @@ export class AnipangScene extends Phaser.Scene {
     
     // 콤보 등급에 따라 음향 선택
     let soundKey;
-    let baseVolume = 0.4;
-    let detune = Phaser.Math.Between(-400, 400);
+    let baseVolume;
+    let detune;
     
     if (this.comboCount >= 10) {
-      // 높은 콤보: 다양한 음향
       soundKey = Phaser.Math.RND.pick(['ouch1', 'ouch2', 'ouch1', 'ouch2']);
-      baseVolume = 0.6; // 더 크게
-      detune = Phaser.Math.Between(-600, 600); // 더 넓은 음정 변화
+      baseVolume = SOUND_CONFIG.SOUND_VOLUME_COMBO10;
+      detune = Phaser.Math.Between(-SOUND_CONFIG.SOUND_DETUNE_COMBO10, SOUND_CONFIG.SOUND_DETUNE_COMBO10);
     } else if (this.comboCount >= 5) {
-      // 중간 콤보
       soundKey = Phaser.Math.RND.pick(['ouch1', 'ouch2']);
-      baseVolume = 0.5;
-      detune = Phaser.Math.Between(-400, 400);
+      baseVolume = SOUND_CONFIG.SOUND_VOLUME_COMBO5;
+      detune = Phaser.Math.Between(-SOUND_CONFIG.SOUND_DETUNE_COMBO5, SOUND_CONFIG.SOUND_DETUNE_COMBO5);
     } else {
-      // 낮은 콤보: 기본 음향
       soundKey = Phaser.Math.RND.pick(['ouch1', 'ouch2']);
-      baseVolume = 0.4;
-      detune = Phaser.Math.Between(-200, 200); // 더 좁은 범위
+      baseVolume = SOUND_CONFIG.SOUND_VOLUME_BASE;
+      detune = Phaser.Math.Between(-SOUND_CONFIG.SOUND_DETUNE_BASE, SOUND_CONFIG.SOUND_DETUNE_BASE);
     }
     
     this.sound.play(soundKey, { detune: detune, volume: baseVolume });
@@ -242,7 +242,7 @@ export class AnipangScene extends Phaser.Scene {
 
     if (this.score >= this.nextBonusThreshold) {
       this.uiManager.grantTimeBonus();
-      this.nextBonusThreshold += 10000;
+      this.nextBonusThreshold += SCORE_CONFIG.BONUS_THRESHOLD;
     }
   }
 
@@ -287,7 +287,7 @@ export class AnipangScene extends Phaser.Scene {
   startCountdown() {
     if (this.timerStarted) return;
     this.timerStarted = true;
-    this.timeLeft = 60;
+    this.timeLeft = GAME_CONFIG.INITIAL_TIME;
 
     this._tickEvent = this.time.addEvent({
       delay: 1000,
@@ -324,7 +324,7 @@ export class AnipangScene extends Phaser.Scene {
     if (this.isProcessing || !this.draggingGem) return;
 
     const dist = Phaser.Math.Distance.Between(this.dragStartX, this.dragStartY, pointer.x, pointer.y);
-    const sensitivity = Math.max(20, this.gemSize * 0.4);
+    const sensitivity = Math.max(DRAG_CONFIG.DRAG_MIN_DISTANCE, this.gemSize * DRAG_CONFIG.DRAG_BASE_SENSITIVITY);
 
     if (dist > sensitivity) {
       const angle = Phaser.Math.Angle.Between(this.dragStartX, this.dragStartY, pointer.x, pointer.y);
@@ -390,8 +390,8 @@ export class AnipangScene extends Phaser.Scene {
 
     if (!this.selectedGem) {
       this.selectedGem = gem;
-      gem.setTint(0x888888);
-      this.tweens.add({ targets: gem, scaleX: 1.1, scaleY: 1.1, duration: 100 });
+      gem.setTint(ANIMATION_CONFIG.GEM_SELECT_TINT);
+      this.tweens.add({ targets: gem, scaleX: ANIMATION_CONFIG.GEM_SELECT_SCALE, scaleY: ANIMATION_CONFIG.GEM_SELECT_SCALE, duration: ANIMATION_CONFIG.GEM_SELECT_DURATION });
     } else {
       if (this.selectedGem === gem) {
         this.restoreGemTint(this.selectedGem);
@@ -409,8 +409,8 @@ export class AnipangScene extends Phaser.Scene {
         this.restoreGemTint(this.selectedGem);
         this.restoreGemSize(this.selectedGem);
         this.selectedGem = gem;
-        gem.setTint(0x888888);
-        this.tweens.add({ targets: gem, scaleX: 1.1, scaleY: 1.1, duration: 100 });
+        gem.setTint(ANIMATION_CONFIG.GEM_SELECT_TINT);
+        this.tweens.add({ targets: gem, scaleX: ANIMATION_CONFIG.GEM_SELECT_SCALE, scaleY: ANIMATION_CONFIG.GEM_SELECT_SCALE, duration: ANIMATION_CONFIG.GEM_SELECT_DURATION });
       }
     }
   }
@@ -491,8 +491,8 @@ export class AnipangScene extends Phaser.Scene {
       targets: [gem1, gem2],
       x: (target) => this.boardManager.getGemX(target.col),
       y: (target) => this.boardManager.getGemY(target.row),
-      duration: 300,
-      ease: 'Power2',
+      duration: ANIMATION_CONFIG.GEM_SWAP_DURATION,
+      ease: ANIMATION_CONFIG.GEM_SWAP_EASE,
       onComplete: () => {
         this.isProcessing = false;
       }
@@ -510,7 +510,7 @@ export class AnipangScene extends Phaser.Scene {
     }
 
     this.comboCount++;
-    const score = matches.length * 100 * this.comboCount;
+    const score = matches.length * SCORE_CONFIG.MATCH_BASE * this.comboCount;
     this.addScore(score);
 
     let centerX = 0, centerY = 0;
@@ -529,13 +529,13 @@ export class AnipangScene extends Phaser.Scene {
       this.uiManager.showComboText(centerX / matches.length, centerY / matches.length, this.comboCount);
     }
 
-    if (this.comboCount >= 3) {
+    if (this.comboCount >= COMBO_CONFIG.BOMB_THRESHOLD) {
       this.explosionManager.createBomb();
-    } else if (this.comboCount === 2) {
+    } else if (this.comboCount === COMBO_CONFIG.DOG_THRESHOLD) {
       this.explosionManager.createDog();
     }
 
-    if (this.comboCount >= 4) {
+    if (this.comboCount >= COMBO_CONFIG.FLASH_THRESHOLD) {
       this.cameras.main.flash(200, 255, 255, 255);
     }
 
@@ -689,10 +689,6 @@ export class AnipangScene extends Phaser.Scene {
     if (this._endTimer) {
       this._endTimer.remove();
       this._endTimer = null;
-    }
-    if (this.boardCheckTimer) {
-      this.time.removeEvent(this.boardCheckTimer);
-      this.boardCheckTimer = null;
     }
 
     // 모든 tweens 정리

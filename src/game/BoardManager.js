@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { GAME_CONFIG, BOARD_CHECK_CONFIG, ANIMATION_CONFIG } from './GameConstants';
 
 /**
  * BoardManager - 보드 및 gem 관리
@@ -186,8 +187,8 @@ export class BoardManager {
       const { gem, fromY, toY, distance, isNew } = animData;
       
       // 떨어지는 거리에 따라 시간 결정 - 빠른 속도로 조정
-      const duration = 200 + distance * 30; // 300→200ms, 50→30 (더 빠른 속도)
-      const delay = index * 10; // 20→10ms (연쇄 효과 가속)
+      const duration = ANIMATION_CONFIG.GEM_FALL_BASE_DURATION + distance * ANIMATION_CONFIG.GEM_FALL_DISTANCE_MULTIPLIER;
+      const delay = index * ANIMATION_CONFIG.GEM_FALL_DELAY;
       
       if (isNew) {
         // 새 gem: 위에서 아래로 떨어지며 튀기
@@ -197,16 +198,16 @@ export class BoardManager {
           y: toY,
           duration: duration,
           delay: delay,
-          ease: 'Cubic.easeIn', // 중력 효과
+          ease: ANIMATION_CONFIG.GEM_FALL_EASE,
           onComplete: () => {
             // 튀기는 효과 - 올라갔다 내려옴 (빠른 버전)
             this.scene.tweens.add({
               targets: gem,
-              y: toY - 10,
-              duration: 60,  // 100→60ms
+              y: toY - ANIMATION_CONFIG.GEM_BOUNCE_NEW_HEIGHT,
+              duration: ANIMATION_CONFIG.GEM_BOUNCE_NEW_DURATION,
               yoyo: true,
               repeat: 1,
-              ease: 'Quad.easeOut',
+              ease: ANIMATION_CONFIG.GEM_BOUNCE_EASE,
               onComplete: () => {
                 // 최종 위치 강제 설정
                 gem.y = toY;
@@ -221,16 +222,16 @@ export class BoardManager {
           y: toY,
           duration: duration,
           delay: delay,
-          ease: 'Cubic.easeIn',
+          ease: ANIMATION_CONFIG.GEM_FALL_EASE,
           onComplete: () => {
             // 튀기는 효과 - 올라갔다 내려옴 (빠른 버전)
             this.scene.tweens.add({
               targets: gem,
-              y: toY - 5,
-              duration: 50,  // 80→50ms
+              y: toY - ANIMATION_CONFIG.GEM_BOUNCE_EXISTING_HEIGHT,
+              duration: ANIMATION_CONFIG.GEM_BOUNCE_EXISTING_DURATION,
               yoyo: true,
               repeat: 1,
-              ease: 'Quad.easeOut',
+              ease: ANIMATION_CONFIG.GEM_BOUNCE_EASE,
               onComplete: () => {
                 // 최종 위치 강제 설정
                 gem.y = toY;
@@ -415,8 +416,8 @@ export class BoardManager {
             targets: lowestGem.gem,
             x: this.getGemX(closestEmptyCol),
             y: this.getGemY(closestEmptyRow),
-            duration: 300,
-            ease: 'Power2'
+            duration: ANIMATION_CONFIG.GEM_SWAP_DURATION,
+            ease: ANIMATION_CONFIG.GEM_SWAP_EASE
           });
         }
       }
