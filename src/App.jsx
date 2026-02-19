@@ -37,12 +37,12 @@ function App() {
   };
 
   return (
-    <div style={{ "text-align": "center", "font-family": "Arial, sans-serif"}}>
+    <div style={{ "text-align": "center", "font-family": "Arial, sans-serif", "width": "100%", "height": "100%", "display": "flex", "flex-direction": "column", "overflow": "hidden" }}>
       <img src={titleImg} alt="냐냐팡" style={{ 
         "width": isMobile() ? "300px" : "60vw", 
         "max-width": isMobile() ? "300px" : "500px",
         "height": "auto", 
-        "margin-bottom": "0px" 
+        "margin": "10px auto 0px auto"
       }} />
 
       <div style={{ display: 'flex', 'justify-content': 'center', gap: '100px', 'align-items': 'center' }}>
