@@ -151,7 +151,6 @@ export class AnipangScene extends Phaser.Scene {
     this.uiManager.createSoundToggleButton();
     
     // 이벤트
-    this.scale.on('resize', this.onResize, this);
     this.input.on('gameobjectdown', this.onGemDown, this);
     this.input.on('pointermove', this.onPointerMove, this);
     this.input.on('pointerup', this.onPointerUp, this);
