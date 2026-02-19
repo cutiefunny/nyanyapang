@@ -327,7 +327,7 @@ export class AnipangScene extends Phaser.Scene {
    */
   onPointerUp(pointer) {
     if (this.draggingGem && !this.isProcessing) {
-        this.handleGemClick(this.draggingGem);
+      this.handleGemClick(this.draggingGem);
     }
     this.draggingGem = null;
   }
@@ -347,7 +347,6 @@ export class AnipangScene extends Phaser.Scene {
    * Gem 클릭 처리
    */
   handleGemClick(gem) {
-    if (!gem || !gem.texture) return;
     if (gem.texture.key === 'bomb') {
       this.explosionManager.explodeBomb(gem);
       return;
@@ -522,14 +521,7 @@ export class AnipangScene extends Phaser.Scene {
   }
 
   /**
-   * 콤보 텍스트 표시
-   */
-  showComboText(x, y, textOrCount) {
-    this.uiManager.showComboText(x, y, textOrCount);
-  }
-
-  /**
-   * Pulse 트윈 추가
+   * 펄스 트윈 추가
    */
   addPulseTween(target) {
     this.tweens.add({
@@ -540,5 +532,12 @@ export class AnipangScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1
     });
+  }
+
+  /**
+   * 콤보 텍스트 표시
+   */
+  showComboText(x, y, textOrCount) {
+    this.uiManager.showComboText(x, y, textOrCount);
   }
 }
