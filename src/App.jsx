@@ -57,8 +57,8 @@ function App() {
 
       <div style={{ 
         position: 'relative',
-        "max-width": isMobile() ? "100%" : "600px",
-        "margin": isMobile() ? "0" : "0 auto"
+        "width": "100%",
+        "flex": "1"
       }}>
         <GameCanvas onScoreUpdate={handleScoreUpdate} onTick={handleTick} onGameOver={handleGameOver} onTimeBonus={handleTimeBonus} />
 
