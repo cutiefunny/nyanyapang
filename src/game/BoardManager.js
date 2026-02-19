@@ -32,7 +32,6 @@ export class BoardManager {
           
           // 최대 시도 횟수 초과 방지
           if (attempts > maxAttempts) {
-            console.warn(`[createBoard] col: ${col}, row: ${row}에서 적절한 type을 찾지 못함, 기본값 사용`);
             break;
           }
         } while (
@@ -81,7 +80,6 @@ export class BoardManager {
     
     // 설정 검증
     if (this.gems[row][col] !== gem) {
-      console.error(`[spawnGem] 치명적: 배열[${row}][${col}] 설정 실패`);
       gem.destroy();
       return null;
     }
@@ -96,19 +94,37 @@ export class BoardManager {
   fillBoard() {
     // 이미 진행 중인 fillBoard를 방지하기 위한 플래그
     if (this._filling) {
-      console.warn('[fillBoard] 이미 진행 중, 중복 호출 방지');
       return 0;
     }
     this._filling = true;
 
-    // Step 1: 진행 중인 tweens 정리
+    // Step 1: 진행 중인 tweens 정리 (특수 블록 유휴 애니메이션은 보호)
     const gems = this.gems;
+    const specialBlockAnimations = new Map(); // 특수 블록의 animation 상태 저장
+    
     gems.forEach(row => {
       row.forEach(gem => {
         if (gem) {
+          // bomb/dog의 pulse 애니메이션 상태 저장
+          if (gem.texture.key === 'bomb' || gem.texture.key === 'dog') {
+            // 현재 active tween 정보 저장
+            const activeTweens = this.scene.tweens.getTweensOf(gem);
+            if (activeTweens.length > 0) {
+              specialBlockAnimations.set(gem, activeTweens);
+            }
+          }
+          
+          // 모든 tween kill
           this.scene.tweens.killTweensOf(gem);
         }
       });
+    });
+    
+    // 특수 블록의 pulse 애니메이션 복구
+    specialBlockAnimations.forEach((tweens, gem) => {
+      if (gem && gem.active !== false) {
+        this.scene.addPulseTween(gem);
+      }
     });
 
     // Step 2: 배열 정리 - null 슬롯 찾고 위에서 아래로 gem 이동 (동기)
@@ -260,6 +276,16 @@ export class BoardManager {
           if (Math.abs(gem.x - correctX) > 1 || Math.abs(gem.y - correctY) > 1) {
             gem.x = correctX;
             gem.y = correctY;
+          }
+          
+          // 특수 블록의 유휴 애니메이션 복구 (pulse tween 보장)
+          if ((gem.texture.key === 'bomb' || gem.texture.key === 'dog') && gem.active !== false) {
+            const activeTweens = this.scene.tweens.getTweensOf(gem);
+            
+            // pulse tween이 없으면 복구 (fillBoard 후에는 보통 tween이 없으므로, 특수 블록이면 복구)
+            if (activeTweens.length === 0) {
+              this.scene.addPulseTween(gem);
+            }
           }
         }
       }

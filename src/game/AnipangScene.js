@@ -430,7 +430,6 @@ export class AnipangScene extends Phaser.Scene {
   swapGems(gem1, gem2) {
     // 선택된 gem이 유효한지 검증
     if (!gem1 || !gem2 || gem1.active === false || gem2.active === false) {
-      console.warn('[swapGems] 유효하지 않은 gem 선택 (이미 삭제됨?)');
       this.isProcessing = false;
       return;
     }
@@ -614,9 +613,7 @@ export class AnipangScene extends Phaser.Scene {
           this.boardManager.gems[row][col] = null;
           emptySpaces.push({ row, col });
         }
-        if (dupCount === 1) { // 처음 중복 발견시만 로그
-          console.error(`[Array Dedup] ${dupCount}개 gem 중복 발견, 정리 완료`);
-        }
+        // 배열 중복 자동 정리됨
       }
     });
 
@@ -638,7 +635,6 @@ export class AnipangScene extends Phaser.Scene {
     // 겹친 gem 제거 (진행 중인 애니메이션 먼저 정리)
     physicalMap.forEach((gemList, key) => {
       if (gemList.length > 1) {
-        console.warn(`[Overlap] ${key}에 ${gemList.length}개 gems 겹침, 정리 중`);
         // depth가 낮은 gem부터 정렬
         gemList.sort((a, b) => (a.gem.depth || 0) - (b.gem.depth || 0));
         
