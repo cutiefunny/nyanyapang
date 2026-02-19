@@ -1,11 +1,27 @@
-import { createSignal } from 'solid-js';
+import { createSignal, createEffect } from 'solid-js';
 import GameCanvas from './components/GameCanvas';
+import titleImg from './assets/title.png';
 import './App.css'; // 기본 CSS는 비웁니다.
 
 function App() {
   const [score, setScore] = createSignal(0);
   const [timeLeft, setTimeLeft] = createSignal(60);
   const [gameOver, setGameOver] = createSignal(false);
+  const [isMobile, setIsMobile] = createSignal(false);
+
+  // 윈도우 크기 감지
+  createEffect(() => {
+    const checkMobile = () => {
+      const width = window.innerWidth;
+      const isMobileValue = width <= 600; // 600px 이하는 모바일로 판단
+      console.log('Screen width:', width, 'isMobile:', isMobileValue);
+      setIsMobile(isMobileValue);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  });
 
   const handleScoreUpdate = (points) => {
     setScore((prev) => prev + points);
@@ -15,8 +31,13 @@ function App() {
   const handleGameOver = () => setGameOver(true);
 
   return (
-    <div style={{ "text-align": "center", "font-family": "Arial, sans-serif", "padding": "20px" }}>
-      <h1>1분 냐냐팡</h1>
+    <div style={{ "text-align": "center", "font-family": "Arial, sans-serif"}}>
+      <img src={titleImg} alt="냐냐팡" style={{ 
+        "width": isMobile() ? "300px" : "60vw", 
+        "max-width": isMobile() ? "300px" : "500px",
+        "height": "auto", 
+        "margin-bottom": "20px" 
+      }} />
 
       <div style={{ display: 'flex', 'justify-content': 'center', gap: '24px', 'align-items': 'center' }}>
         <div style={{ "margin-bottom": "20px", "font-size": "24px", "font-weight": "bold", "color": "#ffdb78" }}>
@@ -28,7 +49,11 @@ function App() {
         </div>
       </div>
 
-      <div style={{ position: 'relative' }}>
+      <div style={{ 
+        position: 'relative',
+        "max-width": isMobile() ? "100%" : "600px",
+        "margin": isMobile() ? "0" : "0 auto"
+      }}>
         <GameCanvas onScoreUpdate={handleScoreUpdate} onTick={handleTick} onGameOver={handleGameOver} />
 
         {gameOver() && (

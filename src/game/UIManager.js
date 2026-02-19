@@ -11,12 +11,15 @@ export class UIManager {
    * 사운드 토글 버튼 생성
    */
   createSoundToggleButton() {
-    const padding = 16;
-    
     const isMobile = this.scene.game.device.os.mobile || this.scene.scale.width < 768;
-    const btnWidth = isMobile ? 120 : 60;
-    const btnHeight = isMobile ? 80 : 40;
-    const fontSize = isMobile ? '48px' : '24px';
+    
+    // 모바일 모드에서는 버튼 숨김
+    if (isMobile) return;
+    
+    const padding = 16;
+    const btnWidth = 60;
+    const btnHeight = 40;
+    const fontSize = '24px';
     
     const btnX = this.scene.scale.width - padding - btnWidth / 2;
     const btnY = padding + btnHeight / 2;
