@@ -10,18 +10,20 @@ export default function GameCanvas(props) {
   const sendLog = (message, level = 'info') => {
     console.log(`[${level.toUpperCase()}] [Phaser] ${message}`);
     
-    // Vercel 로그에도 전송
-    fetch('/api/log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        message, 
-        level,
-        userAgent: navigator.userAgent 
-      })
-    }).catch(() => {
-      // API 호출 실패는 무시
-    });
+    // 프로덕션 환경에서만 Vercel 로그에 전송
+    if (import.meta.env.PROD) {
+      fetch('/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message, 
+          level,
+          userAgent: navigator.userAgent 
+        })
+      }).catch(() => {
+        // API 호출 실패는 무시
+      });
+    }
   };
 
   onMount(() => {
