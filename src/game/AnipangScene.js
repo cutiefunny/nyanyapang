@@ -74,6 +74,9 @@ export class AnipangScene extends Phaser.Scene {
     this.matchChecker = null;
     this.explosionManager = null;
     this.uiManager = null;
+
+    // 보드 체크 타이머
+    this.boardCheckTimer = 0;
   }
 
   preload() {
@@ -158,6 +161,13 @@ export class AnipangScene extends Phaser.Scene {
 
   update() {
     this.boardManager.fixOverlappingGems();
+    
+    // 5초마다 보드 상태 체크
+    this.boardCheckTimer += this.game.loop.delta;
+    if (this.boardCheckTimer >= 5000) {
+      this.boardCheckTimer = 0;
+      this.checkBoardEmptySpaces();
+    }
   }
 
   /**
@@ -184,9 +194,30 @@ export class AnipangScene extends Phaser.Scene {
    */
   playMatchSound() {
     if (!this.soundEnabled) return;
-    const key = Phaser.Math.RND.pick(['ouch1', 'ouch2']);
-    const detuneVal = Phaser.Math.Between(-400, 400);
-    this.sound.play(key, { detune: detuneVal, volume: 0.4 });
+    
+    // 콤보 등급에 따라 음향 선택
+    let soundKey;
+    let baseVolume = 0.4;
+    let detune = Phaser.Math.Between(-400, 400);
+    
+    if (this.comboCount >= 10) {
+      // 높은 콤보: 다양한 음향
+      soundKey = Phaser.Math.RND.pick(['ouch1', 'ouch2', 'ouch1', 'ouch2']);
+      baseVolume = 0.6; // 더 크게
+      detune = Phaser.Math.Between(-600, 600); // 더 넓은 음정 변화
+    } else if (this.comboCount >= 5) {
+      // 중간 콤보
+      soundKey = Phaser.Math.RND.pick(['ouch1', 'ouch2']);
+      baseVolume = 0.5;
+      detune = Phaser.Math.Between(-400, 400);
+    } else {
+      // 낮은 콤보: 기본 음향
+      soundKey = Phaser.Math.RND.pick(['ouch1', 'ouch2']);
+      baseVolume = 0.4;
+      detune = Phaser.Math.Between(-200, 200); // 더 좁은 범위
+    }
+    
+    this.sound.play(soundKey, { detune: detune, volume: baseVolume });
   }
 
   /**
@@ -397,6 +428,13 @@ export class AnipangScene extends Phaser.Scene {
    * Gem 스왑
    */
   swapGems(gem1, gem2) {
+    // 선택된 gem이 유효한지 검증
+    if (!gem1 || !gem2 || gem1.active === false || gem2.active === false) {
+      console.warn('[swapGems] 유효하지 않은 gem 선택 (이미 삭제됨?)');
+      this.isProcessing = false;
+      return;
+    }
+
     this.isProcessing = true;
     this.comboCount = 0;
 
@@ -421,7 +459,14 @@ export class AnipangScene extends Phaser.Scene {
       duration: 300,
       ease: 'Power2',
       onComplete: () => {
-        if (this.matchChecker.checkMatches().length > 0) {
+        // 애니메이션 완료 후 gem이 여전히 유효한지 확인
+        if (!gem1 || !gem2 || gem1.active === false || gem2.active === false) {
+          this.isProcessing = false;
+          return;
+        }
+
+        const matches = this.matchChecker.checkMatches();
+        if (matches.length > 0) {
           this.handleMatches();
         } else {
           this.swapGemsReverse(gem1, gem2, gem1OriginalRow, gem1OriginalCol, gem2OriginalRow, gem2OriginalCol);
@@ -529,6 +574,100 @@ export class AnipangScene extends Phaser.Scene {
   }
 
   /**
+   * 보드 상태 체크: 빈공간 + 겹친 gem (10초마다 실행)
+   * 겹친 gem이 발견되면 depth가 낮은 gem을 삭제
+   * 빈공간은 박스로 시각화하여 디버깅
+   */
+  checkBoardEmptySpaces() {
+    // 애니메이션 진행 중이면 체크 스킵 (경합 방지)
+    if (this.boardManager._filling) {
+      return;
+    }
+
+    const emptySpaces = [];
+    const gemPositions = new Map(); // gem object → [positions]
+    
+    // 1단계: 배열 스캔 - 빈공간 수집 & 중복 감지
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.boardManager.gems[row][col];
+        
+        if (!gem || gem.active === false) {
+          emptySpaces.push({ row, col });
+        } else {
+          // 같은 gem이 여러 위치에 있는지 추적
+          const positions = gemPositions.get(gem) || [];
+          positions.push({ row, col });
+          gemPositions.set(gem, positions);
+        }
+      }
+    }
+
+    // 2단계: 배열 중복 제거 (같은 gem이 여러 위치에 있으면 첫 위치만 유지)
+    let dupCount = 0;
+    gemPositions.forEach((positions, gem) => {
+      if (positions.length > 1) {
+        dupCount++;
+        // 첫 위치만 유지하고 나머지는 null
+        for (let i = 1; i < positions.length; i++) {
+          const { row, col } = positions[i];
+          this.boardManager.gems[row][col] = null;
+          emptySpaces.push({ row, col });
+        }
+        if (dupCount === 1) { // 처음 중복 발견시만 로그
+          console.error(`[Array Dedup] ${dupCount}개 gem 중복 발견, 정리 완료`);
+        }
+      }
+    });
+
+    // 3단계: 물리적 좌표 겹침 체크 (추가 안전장치)
+    const physicalMap = new Map(); // "x,y" → gem list
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.boardManager.gems[row][col];
+        if (gem && gem.active !== false) {
+          const key = `${Math.round(gem.x)},${Math.round(gem.y)}`;
+          if (!physicalMap.has(key)) {
+            physicalMap.set(key, []);
+          }
+          physicalMap.get(key).push({ gem, row, col });
+        }
+      }
+    }
+
+    // 겹친 gem 제거 (진행 중인 애니메이션 먼저 정리)
+    physicalMap.forEach((gemList, key) => {
+      if (gemList.length > 1) {
+        console.warn(`[Overlap] ${key}에 ${gemList.length}개 gems 겹침, 정리 중`);
+        // depth가 낮은 gem부터 정렬
+        gemList.sort((a, b) => (a.gem.depth || 0) - (b.gem.depth || 0));
+        
+        // 첫 번째 제외 나머지 삭제
+        for (let i = 1; i < gemList.length; i++) {
+          const { gem, row, col } = gemList[i];
+          
+          // 진행 중인 tweens 정리
+          this.tweens.killTweensOf(gem);
+          
+          // 배열에서 제거
+          this.boardManager.gems[row][col] = null;
+          
+          // gem 삭제
+          gem.destroy();
+          
+          // 빈공간 추가
+          emptySpaces.push({ row, col });
+        }
+      }
+    });
+
+    // 4단계: 빈공간 체우기
+    if (emptySpaces.length > 0) {
+      this.boardManager.fillBoard();
+    }
+  }
+
+  /**
    * Pulse 트윈 추가
    */
   addPulseTween(target) {
@@ -541,4 +680,49 @@ export class AnipangScene extends Phaser.Scene {
       repeat: -1
     });
   }
+
+  /**
+   * 씬 종료 시 정리
+   */
+  shutdown() {
+    // 모든 타이머 정리
+    if (this._tickEvent) {
+      this._tickEvent.remove();
+      this._tickEvent = null;
+    }
+    if (this._endTimer) {
+      this._endTimer.remove();
+      this._endTimer = null;
+    }
+    if (this.boardCheckTimer) {
+      this.time.removeEvent(this.boardCheckTimer);
+      this.boardCheckTimer = null;
+    }
+
+    // 모든 tweens 정리
+    this.tweens.killAll();
+
+    // 모든 사운드 정지
+    if (this.sound) {
+      this.sound.stopAll();
+      this.sound.unlock();
+    }
+
+    // 매니저 정리
+    if (this.boardManager && this.boardManager.gems) {
+      this.boardManager.gems.forEach(row => {
+        row.forEach(gem => {
+          if (gem && gem.destroy) {
+            gem.destroy();
+          }
+        });
+      });
+    }
+
+    // 파티클 정리
+    if (this.particleManager) {
+      this.particleManager.emitParticleAt(0, 0, 1);
+    }
+  }
 }
+

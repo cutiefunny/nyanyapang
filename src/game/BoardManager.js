@@ -11,6 +11,7 @@ export class BoardManager {
     this.gemTypes = gemTypes;
     this.gemSize = gemSize;
     this.gems = [];
+    this._filling = false; // fillBoard 중복 호출 방지
   }
 
   /**
@@ -22,24 +23,48 @@ export class BoardManager {
       this.gems[row] = [];
       for (let col = 0; col < this.boardSize.cols; col++) {
         let type;
+        let attempts = 0;
+        const maxAttempts = 10;
+        
         do {
           type = Phaser.Math.RND.pick(this.gemTypes);
+          attempts++;
+          
+          // 최대 시도 횟수 초과 방지
+          if (attempts > maxAttempts) {
+            console.warn(`[createBoard] col: ${col}, row: ${row}에서 적절한 type을 찾지 못함, 기본값 사용`);
+            break;
+          }
         } while (
-          (row >= 2 && this.gems[row - 1][col].texture.key === type && this.gems[row - 2][col].texture.key === type) ||
-          (col >= 2 && this.gems[row][col - 1].texture.key === type && this.gems[row][col - 2].texture.key === type)
+          (row >= 2 && this.gems[row - 1]?.[col]?.texture?.key === type && this.gems[row - 2]?.[col]?.texture?.key === type) ||
+          (col >= 2 && this.gems[row]?.[col - 1]?.texture?.key === type && this.gems[row]?.[col - 2]?.texture?.key === type)
         );
+        
         this.spawnGem(row, col, type);
       }
     }
   }
 
   /**
-   * 특정 위치에 gem 생성
+   * 특정 위치에 gem 생성 - 중복 방지 강화
    */
   spawnGem(row, col, type) {
     const x = this.getGemX(col);
     const y = this.getGemY(row);
     
+    // 해당 위치에 이미 gem이 있으면 강제 제거
+    if (this.gems[row] && this.gems[row][col]) {
+      const existing = this.gems[row][col];
+      
+      // tweens 정리
+      this.scene.tweens.killTweensOf(existing);
+      
+      // 기존 gem 제거
+      existing.destroy();
+      this.gems[row][col] = null;
+    }
+    
+    // 새 gem 생성
     const gem = this.scene.add.sprite(x, y, type);
     gem.setDisplaySize(this.gemSize - 2, this.gemSize - 2);
     
@@ -49,62 +74,229 @@ export class BoardManager {
     gem.setInteractive();
     gem.row = row;
     gem.col = col;
+    gem.type = type;
     
+    // 배열에 설정
     this.gems[row][col] = gem;
+    
+    // 설정 검증
+    if (this.gems[row][col] !== gem) {
+      console.error(`[spawnGem] 치명적: 배열[${row}][${col}] 설정 실패`);
+      gem.destroy();
+      return null;
+    }
+    
     return gem;
   }
 
   /**
    * 빈칸 채우기 (gem이 떨어짐)
+   * 배열 업데이트는 동기, 애니메이션은 비동기 (겹침 방지 & 시각효과 유지)
    */
   fillBoard() {
-    let maxDuration = 0;
+    // 이미 진행 중인 fillBoard를 방지하기 위한 플래그
+    if (this._filling) {
+      console.warn('[fillBoard] 이미 진행 중, 중복 호출 방지');
+      return 0;
+    }
+    this._filling = true;
 
+    // Step 1: 진행 중인 tweens 정리
+    const gems = this.gems;
+    gems.forEach(row => {
+      row.forEach(gem => {
+        if (gem) {
+          this.scene.tweens.killTweensOf(gem);
+        }
+      });
+    });
+
+    // Step 2: 배열 정리 - null 슬롯 찾고 위에서 아래로 gem 이동 (동기)
+    const animatingGems = []; // 애니메이션이 필요한 gem 수집
+    
     for (let col = 0; col < this.boardSize.cols; col++) {
       let emptySlots = 0;
       
       for (let row = this.boardSize.rows - 1; row >= 0; row--) {
-        if (this.gems[row][col] === null) {
+        const gem = gems[row][col];
+        if (!gem || gem.active === false) {
           emptySlots++;
         } else if (emptySlots > 0) {
-          const gem = this.gems[row][col];
           const newRow = row + emptySlots;
+          const distance = emptySlots;
+          const targetY = this.getGemY(newRow);
           
-          this.gems[newRow][col] = gem;
-          this.gems[row][col] = null;
+          // 배열 업데이트 (동기화) - 하지만 gem.y는 현재 위치 유지!
+          gems[newRow][col] = gem;
+          gems[row][col] = null;
           gem.row = newRow;
-
-          this.scene.tweens.add({
-            targets: gem,
-            y: this.getGemY(newRow),
-            duration: 400,
-            ease: 'Bounce.easeOut'
+          gem.col = col;
+          // gem.y는 업데이트하지 않음! (현재 위치에서 출발)
+          
+          // 애니메이션 정보 수집 - 현재 위치에서 목표 위치로
+          animatingGems.push({
+            gem: gem,
+            fromY: gem.y,      // 현재 위치에서 시작
+            toY: targetY,      // 목표 위치로 끝남
+            distance: distance
           });
         }
       }
 
-      for (let i = 0; i < emptySlots; i++) {
-        const row = emptySlots - 1 - i;
-        const type = Phaser.Math.RND.pick(this.gemTypes);
-        const startY = this.getGemY(row) - (emptySlots * this.gemSize) - 50;
-        const destY = this.getGemY(row);
-
-        const gem = this.spawnGem(row, col, type);
-        gem.y = startY;
-
-        this.scene.tweens.add({
-          targets: gem,
-          y: destY,
-          duration: 500,
-          ease: 'Bounce.easeOut',
-          delay: i * 80
-        });
-
-        maxDuration = Math.max(maxDuration, 500 + i * 80);
+      // Step 3: 빈 슬롯에 새로운 gem 생성 (동기)
+      if (emptySlots > 0) {
+        for (let row = 0; row < this.boardSize.rows && row < emptySlots; row++) {
+          if (gems[row][col] === null) {
+            const type = Phaser.Math.RND.pick(this.gemTypes);
+            const gem = this.spawnGem(row, col, type);
+            
+            if (gem) {
+              // 새로운 gem은 위에서 떨어져 내려오는 효과
+              animatingGems.push({
+                gem: gem,
+                fromY: this.getGemY(-1), // 화면 위에서
+                toY: gem.y,
+                isNew: true,
+                distance: row + 1
+              });
+            }
+          }
+        }
       }
     }
 
-    return maxDuration;
+    // Step 4: 모든 gem에 대해 중력 애니메이션 추가
+    animatingGems.forEach((animData, index) => {
+      const { gem, fromY, toY, distance, isNew } = animData;
+      
+      // 떨어지는 거리에 따라 시간 결정 - 빠른 속도로 조정
+      const duration = 200 + distance * 30; // 300→200ms, 50→30 (더 빠른 속도)
+      const delay = index * 10; // 20→10ms (연쇄 효과 가속)
+      
+      if (isNew) {
+        // 새 gem: 위에서 아래로 떨어지며 튀기
+        gem.y = fromY;
+        this.scene.tweens.add({
+          targets: gem,
+          y: toY,
+          duration: duration,
+          delay: delay,
+          ease: 'Cubic.easeIn', // 중력 효과
+          onComplete: () => {
+            // 튀기는 효과 - 올라갔다 내려옴 (빠른 버전)
+            this.scene.tweens.add({
+              targets: gem,
+              y: toY - 10,
+              duration: 60,  // 100→60ms
+              yoyo: true,
+              repeat: 1,
+              ease: 'Quad.easeOut',
+              onComplete: () => {
+                // 최종 위치 강제 설정
+                gem.y = toY;
+              }
+            });
+          }
+        });
+      } else {
+        // 기존 gem: 목표 위치로 이동 후 튀기
+        this.scene.tweens.add({
+          targets: gem,
+          y: toY,
+          duration: duration,
+          delay: delay,
+          ease: 'Cubic.easeIn',
+          onComplete: () => {
+            // 튀기는 효과 - 올라갔다 내려옴 (빠른 버전)
+            this.scene.tweens.add({
+              targets: gem,
+              y: toY - 5,
+              duration: 50,  // 80→50ms
+              yoyo: true,
+              repeat: 1,
+              ease: 'Quad.easeOut',
+              onComplete: () => {
+                // 최종 위치 강제 설정
+                gem.y = toY;
+              }
+            });
+          }
+        });
+      }
+    });
+
+    // Step 5: fillBoard 완료 후 겹침 체크 호출 (애니메이션이 충분히 진행된 후)
+    const maxDuration = Math.max(
+      200 + Math.max(...animatingGems.map(a => a.distance)) * 30,  // 빠른 속도 반영
+      400
+    ) + 100; // 더 짧은 여유 시간
+    
+    setTimeout(() => {
+      // 모든 gem의 최종 위치 재정렬 (부동소수점 오류 보정)
+      this.finalizePositions();
+      
+      if (this.scene && this.scene.checkBoardEmptySpaces) {
+        this.scene.checkBoardEmptySpaces();
+      }
+      this._filling = false;
+    }, maxDuration);
+
+    return 0;
+  }
+
+  /**
+   * 모든 gem의 최종 위치 재정렬 (애니메이션 후 보정)
+   * 부동소수점 오류나 애니메이션 부정확성을 보정
+   */
+  finalizePositions() {
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.gems[row][col];
+        if (gem && gem.active !== false) {
+          const correctX = this.getGemX(col);
+          const correctY = this.getGemY(row);
+          
+          // 위치 차이가 크면 강제 재설정
+          if (Math.abs(gem.x - correctX) > 1 || Math.abs(gem.y - correctY) > 1) {
+            gem.x = correctX;
+            gem.y = correctY;
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 지정된 위치의 빈공간을 bomb으로 채우기
+   */
+  fillBoardWithBomb(emptySpaces) {
+    emptySpaces.forEach((space, index) => {
+      const { row, col } = space;
+      const x = this.getGemX(col);
+      const y = this.getGemY(row);
+      
+      const bomb = this.scene.add.sprite(x, y, 'bomb');
+      bomb.setDisplaySize(this.gemSize - 2, this.gemSize - 2);
+      bomb.setInteractive();
+      bomb.row = row;
+      bomb.col = col;
+      bomb.texture.key = 'bomb';
+      
+      // 배열에 등록
+      this.gems[row][col] = bomb;
+      
+      // 위에서 떨어지는 애니메이션
+      const startY = y - (emptySpaces.length * this.gemSize) - 50;
+      bomb.y = startY;
+      
+      this.scene.tweens.add({
+        targets: bomb,
+        y: y,
+        duration: 500,
+        ease: 'Bounce.easeOut',
+        delay: index * 80
+      });
+    });
   }
 
   /**
