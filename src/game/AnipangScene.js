@@ -65,7 +65,7 @@ export class AnipangScene extends Phaser.Scene {
     };
 
     this.baseTints = {
-      'gem1': 0xffffff, 'gem2': 0xffffff, 'gem3': 0xeeffee, 
+      'gem1': 0xffffff, 'gem2': 0xffffff, 'gem3': 0xffffff, 
       'gem4': 0xffffff, 'gem5': 0xffffff, 'gem6': 0xffffff,
       'bomb': 0xff0000, 'dog': 0xffffff
     };
