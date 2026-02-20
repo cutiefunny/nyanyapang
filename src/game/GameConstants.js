@@ -126,3 +126,13 @@ export const DRAG_CONFIG = {
   DRAG_BASE_SENSITIVITY: 0.4,   // gemSize * 0.4
   DRAG_MIN_DISTANCE: 20,
 };
+export const FEVER_CONFIG = {
+  DURATION: 10000,              // 피버타임 지속 시간 (ms)
+  REMAINING_GEM_THRESHOLD: 32,   // 피버타임 발동 조건 (남은 gem 개수 - 32개 이하일 때 발동)       // 피버타임 발동 조건 (전체의 50% 이상 비워짐)
+  SPARKLE_DURATION: 300,        // 반짝임 애니메이션 주기 (ms)
+  TEXT_DISPLAY_TIME: 1000,      // Fever Time 텍스트 표시 시간 (ms)
+  TEXT_FONT_SIZE: '100px',      // Fever Time 텍스트 크기
+  TEXT_SCALE_START: 0.1,        // 텍스트 시작 스케일
+  TEXT_SCALE_END: 1.0,          // 텍스트 최종 스케일
+  FALL_SPEED_MULTIPLIER: 1      // 피버타임 중 블록 낙하 속도 배수
+};

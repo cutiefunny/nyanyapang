@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_CONFIG, BOARD_CHECK_CONFIG, ANIMATION_CONFIG } from './GameConstants';
+import { GAME_CONFIG, BOARD_CHECK_CONFIG, ANIMATION_CONFIG, FEVER_CONFIG } from './GameConstants';
 
 /**
  * BoardManager - 보드 및 gem 관리
@@ -187,7 +187,13 @@ export class BoardManager {
       const { gem, fromY, toY, distance, isNew } = animData;
       
       // 떨어지는 거리에 따라 시간 결정 - 빠른 속도로 조정
-      const duration = ANIMATION_CONFIG.GEM_FALL_BASE_DURATION + distance * ANIMATION_CONFIG.GEM_FALL_DISTANCE_MULTIPLIER;
+      let duration = ANIMATION_CONFIG.GEM_FALL_BASE_DURATION + distance * ANIMATION_CONFIG.GEM_FALL_DISTANCE_MULTIPLIER;
+      
+      // 피버타임 중이면 속도 배수 적용 (2배 빠름)
+      if (this.scene.feverTimeActive) {
+        duration = Math.floor(duration / FEVER_CONFIG.FALL_SPEED_MULTIPLIER);
+      }
+      
       const delay = index * ANIMATION_CONFIG.GEM_FALL_DELAY;
       
       if (isNew) {

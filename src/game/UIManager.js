@@ -2,6 +2,8 @@
  * UIManager - UI 요소 및 애니메이션
  * 책임: 사운드 버튼, 텍스트 표시, 보너스 이펙트
  */
+import { FEVER_CONFIG } from './GameConstants';
+
 export class UIManager {
   constructor(scene) {
     this.scene = scene;
@@ -136,6 +138,78 @@ export class UIManager {
       duration: 1200,
       ease: 'Elastic.easeOut',
       onComplete: () => bonusText.destroy()
+    });
+  }
+
+  /**
+   * 피버타임 텍스트 표시
+   */
+  showFeverTimeText() {
+    const centerX = this.scene.scale.width / 2;
+    const centerY = this.scene.scale.height / 2;
+    const feverText = this.scene.add.text(centerX, centerY, 'Fever\nTime!!', {
+      fontFamily: 'Arial Black',
+      fontSize: FEVER_CONFIG.TEXT_FONT_SIZE,
+      color: '#ff00ff',
+      stroke: '#ffff00',
+      strokeThickness: 12,
+      fontStyle: 'bold',
+      shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 5, fill: true }
+    }).setOrigin(0.5).setDepth(1000).setScale(FEVER_CONFIG.TEXT_SCALE_START);
+
+    this.scene.tweens.add({
+      targets: feverText,
+      scale: FEVER_CONFIG.TEXT_SCALE_END,
+      alpha: 0.8,
+      duration: 600,
+      ease: 'Elastic.easeOut'
+    });
+
+    // 명시된 시간 후 사라짐
+    this.scene.time.delayedCall(FEVER_CONFIG.TEXT_DISPLAY_TIME, () => {
+      this.scene.tweens.add({
+        targets: feverText,
+        alpha: 0,
+        scale: 0.5,
+        duration: 400,
+        onComplete: () => feverText.destroy()
+      });
+    });
+  }
+
+  /**
+   * 쿨다운 텍스트 표시
+   */
+  showCoolDownText() {
+    const centerX = this.scene.scale.width / 2;
+    const centerY = this.scene.scale.height / 2;
+    const cooldownText = this.scene.add.text(centerX, centerY, 'Cool\nDown!', {
+      fontFamily: 'Arial Black',
+      fontSize: FEVER_CONFIG.TEXT_FONT_SIZE,
+      color: '#00ccff',
+      stroke: '#0099ff',
+      strokeThickness: 12,
+      fontStyle: 'bold',
+      shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 5, fill: true }
+    }).setOrigin(0.5).setDepth(1000).setScale(FEVER_CONFIG.TEXT_SCALE_START);
+
+    this.scene.tweens.add({
+      targets: cooldownText,
+      scale: FEVER_CONFIG.TEXT_SCALE_END,
+      alpha: 0.8,
+      duration: 600,
+      ease: 'Elastic.easeOut'
+    });
+
+    // 명시된 시간 후 사라짐
+    this.scene.time.delayedCall(FEVER_CONFIG.TEXT_DISPLAY_TIME, () => {
+      this.scene.tweens.add({
+        targets: cooldownText,
+        alpha: 0,
+        scale: 0.5,
+        duration: 400,
+        onComplete: () => cooldownText.destroy()
+      });
     });
   }
 }

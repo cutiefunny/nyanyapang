@@ -22,7 +22,7 @@ import { BoardManager } from './BoardManager';
 import { MatchChecker } from './MatchChecker';
 import { ExplosionManager } from './ExplosionManager';
 import { UIManager } from './UIManager';
-import { GAME_CONFIG, COMBO_CONFIG, SCORE_CONFIG, ANIMATION_CONFIG, SOUND_CONFIG, DRAG_CONFIG, BOARD_CHECK_CONFIG } from './GameConstants';
+import { GAME_CONFIG, COMBO_CONFIG, SCORE_CONFIG, ANIMATION_CONFIG, SOUND_CONFIG, DRAG_CONFIG, BOARD_CHECK_CONFIG, FEVER_CONFIG } from './GameConstants';
 
 export class AnipangScene extends Phaser.Scene {
   constructor() {
@@ -78,6 +78,10 @@ export class AnipangScene extends Phaser.Scene {
 
     // 보드 체크 타이머
     this.boardCheckTimer = 0;
+
+    // 피버타임
+    this.feverTimeActive = false;
+    this.feverTimeEvent = null;
   }
 
   preload() {
@@ -379,6 +383,13 @@ export class AnipangScene extends Phaser.Scene {
    */
   handleGemClick(gem) {
     if (!gem || !gem.texture) return;
+    
+    // 피버타임 중이면 모든 블록을 폭탄처럼 터뜨림
+    if (this.feverTimeActive) {
+      this.explosionManager.explodeBomb(gem);
+      return;
+    }
+
     if (gem.texture.key === 'bomb') {
       this.explosionManager.explodeBomb(gem);
       return;
@@ -543,7 +554,12 @@ export class AnipangScene extends Phaser.Scene {
     this.time.delayedCall(200, () => {
       const maxDuration = this.boardManager.fillBoard();
       this.time.delayedCall(maxDuration + 150, () => {
-        this.handleMatchesAfterExplosion();
+        // 보드의 반이 비워졌는지 체크
+        if (this.isBoardHalfEmpty()) {
+          this.activateFeverTime();
+        } else {
+          this.handleMatchesAfterExplosion();
+        }
       });
     });
   }
@@ -559,10 +575,137 @@ export class AnipangScene extends Phaser.Scene {
         this.time.delayedCall(500, () => {
           if (this.matchChecker.checkMatches().length > 0) {
             this.handleMatches();
+          } else {
+            // 피버타임 상태면 새로운 블록들에 tween 적용
+            this.applyFeverTweenToNewGems();
           }
         });
+      } else {
+        // 피버타임 상태면 새로운 블록들에 tween 적용
+        this.applyFeverTweenToNewGems();
       }
     }
+  }
+
+  /**
+   * 보드에 남은 gems 개수 확인 (반 이상 터졌는지 확인)
+   * 피버타임 발동 조건: 전체 64칸 중 32칸 이상이 비어있음 (gems의 반 이상 터짐)
+   */
+  isBoardHalfEmpty() {
+    let gemCount = 0;
+    const totalSlots = this.boardSize.rows * this.boardSize.cols; // 64
+
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.boardManager.gems[row][col];
+        // null이거나 active가 false면 비어있다고 간주
+        if (gem && gem.active !== false && gem.texture.key !== 'bomb' && gem.texture.key !== 'dog') {
+          gemCount++;
+        }
+      }
+    }
+
+    console.log(`[피버] gem 비율: ${gemCount}/${totalSlots} (${(gemCount / totalSlots * 100).toFixed(1)}%), 한계: ${FEVER_CONFIG.REMAINING_GEM_THRESHOLD}`);
+
+    // gems이 3개 이하로 줄어들면 피버타임 발동
+    return gemCount <= FEVER_CONFIG.REMAINING_GEM_THRESHOLD;
+  }
+
+  /**
+   * 보드가 비어있는지 확인 (기존 로직)
+   */
+  isBoardEmpty() {
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.boardManager.gems[row][col];
+        if (gem && gem.active && gem.texture.key !== 'bomb' && gem.texture.key !== 'dog') {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * 피버타임 활성화 (모든 블록 터짐)
+   */
+  activateFeverTime() {
+    console.log('[피버] 피버타임 발동!');
+    if (this.feverTimeActive) {
+      console.log('[피버] 이미 발동 중, 중복 바방 처리');
+      return;
+    }
+    this.feverTimeActive = true;
+
+    // "Fever Time!!" 텍스트 표시
+    this.uiManager.showFeverTimeText();
+
+    // 모든 블록에 빨간색 틴트 반짝이 효과
+    this.applyFeverTweenToNewGems();
+
+    // 10초 후 피버타임 종료
+    this.feverTimeEvent = this.time.delayedCall(FEVER_CONFIG.DURATION, () => {
+      this.endFeverTime();
+    });
+    
+    // 빰버타임은 단순히 대기 중이브로 기능
+    this.isProcessing = false;
+  }
+
+  /**
+   * 피버타임에 새로 생성된 블록들에 틴트 반짝이 효과 적용
+   */
+  applyFeverTweenToNewGems() {
+    if (!this.feverTimeActive) return;
+    
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.boardManager.gems[row][col];
+        if (gem && gem.active) {
+          // 특수블록(폭탄, 개)은 반짝임 효과 제외
+          if (gem.texture.key === 'bomb' || gem.texture.key === 'dog') {
+            continue;
+          }
+          
+          // 이미 tween이 있으면 스킵
+          const tweens = this.tweens.getTweensOf(gem);
+          const hasSparkle = tweens.some(t => t.targets.includes(gem) && t.data.some(d => d.key === 'tint'));
+          
+          if (!hasSparkle) {
+            this.tweens.add({
+              targets: gem,
+              tint: 0xff3333,
+              duration: FEVER_CONFIG.SPARKLE_DURATION,
+              repeat: -1,
+              yoyo: true
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 피버타임 종료
+   */
+  endFeverTime() {
+    this.feverTimeActive = false;
+
+    // "Cool Down!" 텍스트 표시
+    this.uiManager.showCoolDownText();
+
+    // 모든 블록의 반짝이 애니메이션 정지 및 tint 복구
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.boardManager.gems[row][col];
+        if (gem && gem.active && gem.texture.key !== 'bomb' && gem.texture.key !== 'dog') {
+          this.tweens.killTweensOf(gem);
+          gem.tint = 0xffffff;
+        }
+      }
+    }
+
+    this.isProcessing = false;
   }
 
   /**
@@ -677,6 +820,10 @@ export class AnipangScene extends Phaser.Scene {
     if (this._endTimer) {
       this._endTimer.remove();
       this._endTimer = null;
+    }
+    if (this.feverTimeEvent) {
+      this.feverTimeEvent.remove();
+      this.feverTimeEvent = null;
     }
 
     // 모든 tweens 정리
