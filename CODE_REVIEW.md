@@ -1,33 +1,56 @@
-# 냐냐팡 코드 리뷰 - 최적화 및 오류 가능성 분석
+# 냐냐팡 코드 리뷰
 
-## 🔴 CRITICAL ISSUES (즉시 해결 필요)
+> 분석 기준: 메모리 누수 / 코드 중복 / 최적화  
+> (`isProcessing` 조기 해제는 의도된 동시성 컨셉으로 제외)
 
-### 1. **gems 겹침 문제**
-**파일**: BoardManager.js, AnipangScene.js
-- **증상**: fillBoard() 실행 중 같은 위치에 2개의 gems가 존재
-- **원인**: 배열 업데이트와 물리적 좌표가 tween 애니메이션 중에 비동기로 처리됨
-- **영향도**: 🔴 높음 - 게임 플레이 방해
-- **권장사항**: 
-  ```
-  1. fillBoard() 실행 중 tween 중단 후 재시작
-  2. 배열 업데이트 시 중복 체크 강화
-  3. 물리적 좌표 업데이트를 배열 동기화와 함께 처리
-  ```
+---
 
-### 2. **타이머 정리 불완전**
-**파일**: AnipangScene.js (update, destroy 메서드)
-- **위험**: 
-  ```javascript
-  this._tickEvent // 정리되지 않을 수 있음
-  this._endTimer  // destroy()에서 정리 필요
-  this.boardCheckTimer // 계속 실행 가능
-  ```
-- **해결책**: destroy() 메서드 강화
-  ```javascript
-  destroy() {
-    if (this._tickEvent) this._tickEvent.remove();
-    if (this._endTimer) this._endTimer.remove();
-    if (this.boardCheckTimer) this.time.removeEvent(this.boardCheckTimer);
+## 💧 메모리 누수 (3건)
+
+| # | 파일 | 내용 | 상태 |
+|---|------|------|------|
+| 1 | `BoardManager.js` | `setTimeout` 사용 — 씬 파괴 후에도 콜백 실행됨 | ✅ 수정 완료 |
+| 2 | `GameCanvas.jsx` | `window` 이벤트 리스너 미제거 — `{ once: true }`는 이벤트 미발생 시 미제거 | ✅ 수정 완료 |
+| 3 | `AnipangScene.js` | `shutdown()`에서 `particleManager.destroy()` 누락 | ✅ 수정 완료 |
+
+### 상세
+
+**1. BoardManager.js — `setTimeout` → Phaser `time.delayedCall`**  
+씬이 파괴(게임 오버, `scene.restart()`)되어도 네이티브 타이머는 계속 실행되며
+destroyed된 씬 객체(`this.scene`, `this.finalizePositions()`)에 접근을 시도함.  
+Phaser의 `time.delayedCall`은 씬 종료 시 자동 정리됨.
+
+**2. GameCanvas.jsx — `onMount` 내부에서 `onCleanup` 등록**  
+`{ once: true }`는 이벤트가 실제 발화했을 때만 자동 제거됨.
+게임 시작 전 컴포넌트가 언마운트되면 리스너가 `window`에 잔류함.  
+SolidJS 패턴: `onMount` 내부의 `onCleanup`은 closure로 `unlockAudio` 참조를 유지함.
+
+**3. AnipangScene.js — `particleManager.destroy()` 누락**  
+기존 `emitParticleAt(0, 0, 1)` 호출은 정리가 아닌 파티클 발사임.  
+Phaser 파티클 에미터는 내부적으로 텍스처·프레임 참조를 유지하므로 `destroy()` 필요.
+
+---
+
+## 🔁 코드 중복 (5건)
+
+| # | 파일 | 내용 | 상태 |
+|---|------|------|------|
+| 4 | `AnipangScene.js` | `BOARD_CHECK_CONFIG` 로컬 재선언 — `GameConstants.js`에 이미 export됨 | ✅ 수정 완료 |
+| 5 | 5개 파일 | 젬 크기 로직(`gemSize - 2`, `gemSize * 1.0`) 분산 — `GameConstants` 상수 미활용 + `SPECIAL_GEM_SCALE = 1.0`으로 누적 스케일링 버그 회피 | ✅ 수정 완료 |
+| 6 | `BoardManager.js` / `AnipangScene.js` | 물리 좌표 겹침 감지 로직 중복 구현 | ✅ 수정 완료 |
+| 7 | `BoardManager.js` | `fillBoardWithBomb()` — 미호출 dead code + `spawnGem()`과 로직 중복 | ✅ 수정 완료 |
+| 8 | `GemPool.js`, `counter.js` | 파일 전체가 미사용 dead code | ✅ 수정 완료 |
+
+---
+
+## ⚡ 최적화 (4건)
+
+| # | 파일 | 내용 | 상태 |
+|---|------|------|------|
+| 9 | `AnipangScene.js` → `BoardManager.js` | `update()` 매 프레임 `new Map()` 생성 (60fps × 64칸 순회) | ⬜ 미수정 |
+| 10 | `AnipangScene.js` | `checkMatches()` 중복 호출 — `swapGems`, `handleMatchesAfterExplosion` 각 2회씩 | ⬜ 미수정 |
+| 11 | `BoardManager.js` | `fillBoard()` 내부에서 `maxDuration` 계산 후 `return 0` — 호출부 타이밍 오작동 | ⬜ 미수정 |
+| 12 | `ExplosionManager.js` | `activateAngryDog()` 다중 tween `onUpdate`마다 독립적으로 64칸 순회 중복 | ⬜ 미수정 |
     this.sound.stopAll();
   }
   ```

@@ -66,7 +66,7 @@ export class BoardManager {
     
     // 새 gem 생성
     const gem = this.scene.add.sprite(x, y, type);
-    gem.setDisplaySize(this.gemSize - 2, this.gemSize - 2);
+    gem.setDisplaySize(this.gemSize - GAME_CONFIG.GEM_SIZE_OFFSET, this.gemSize - GAME_CONFIG.GEM_SIZE_OFFSET);
     
     const baseTint = this.scene.baseTints[type] || 0xffffff;
     gem.setTint(baseTint);
@@ -247,16 +247,17 @@ export class BoardManager {
       200 + Math.max(...animatingGems.map(a => a.distance)) * 30,  // 빠른 속도 반영
       400
     ) + 100; // 더 짧은 여유 시간
-    
-    setTimeout(() => {
+
+    // setTimeout 대신 Phaser time.delayedCall 사용 — 씬 파괴 시 자동 정리됨
+    this.scene.time.delayedCall(maxDuration, () => {
       // 모든 gem의 최종 위치 재정렬 (부동소수점 오류 보정)
       this.finalizePositions();
-      
+
       if (this.scene && this.scene.checkBoardEmptySpaces) {
         this.scene.checkBoardEmptySpaces();
       }
       this._filling = false;
-    }, maxDuration);
+    });
 
     return 0;
   }
@@ -291,39 +292,6 @@ export class BoardManager {
         }
       }
     }
-  }
-
-  /**
-   * 지정된 위치의 빈공간을 bomb으로 채우기
-   */
-  fillBoardWithBomb(emptySpaces) {
-    emptySpaces.forEach((space, index) => {
-      const { row, col } = space;
-      const x = this.getGemX(col);
-      const y = this.getGemY(row);
-      
-      const bomb = this.scene.add.sprite(x, y, 'bomb');
-      bomb.setDisplaySize(this.gemSize - 2, this.gemSize - 2);
-      bomb.setInteractive();
-      bomb.row = row;
-      bomb.col = col;
-      bomb.texture.key = 'bomb';
-      
-      // 배열에 등록
-      this.gems[row][col] = bomb;
-      
-      // 위에서 떨어지는 애니메이션
-      const startY = y - (emptySpaces.length * this.gemSize) - 50;
-      bomb.y = startY;
-      
-      this.scene.tweens.add({
-        targets: bomb,
-        y: y,
-        duration: 500,
-        ease: 'Bounce.easeOut',
-        delay: index * 80
-      });
-    });
   }
 
   /**
@@ -366,23 +334,29 @@ export class BoardManager {
   }
 
   /**
-   * 겹친 gem 감지 및 수정
+   * 물리적 좌표 기준 겹침 감지 (공유 로직)
+   * fixOverlappingGems / checkBoardEmptySpaces 양쪽에서 사용
    */
-  fixOverlappingGems() {
-    const positionMap = new Map();
-    
+  detectPhysicalOverlaps() {
+    const physicalMap = new Map();
     for (let row = 0; row < this.boardSize.rows; row++) {
       for (let col = 0; col < this.boardSize.cols; col++) {
         const gem = this.gems[row][col];
         if (gem && gem.active) {
           const key = `${Math.round(gem.x)},${Math.round(gem.y)}`;
-          if (!positionMap.has(key)) {
-            positionMap.set(key, []);
-          }
-          positionMap.get(key).push({ gem, row, col });
+          if (!physicalMap.has(key)) physicalMap.set(key, []);
+          physicalMap.get(key).push({ gem, row, col });
         }
       }
     }
+    return physicalMap;
+  }
+
+  /**
+   * 겹친 gem 감지 및 수정
+   */
+  fixOverlappingGems() {
+    const positionMap = this.detectPhysicalOverlaps();
 
     positionMap.forEach((gems) => {
       if (gems.length > 1) {

@@ -22,8 +22,7 @@ import { BoardManager } from './BoardManager';
 import { MatchChecker } from './MatchChecker';
 import { ExplosionManager } from './ExplosionManager';
 import { UIManager } from './UIManager';
-import { GAME_CONFIG, COMBO_CONFIG, SCORE_CONFIG, ANIMATION_CONFIG, SOUND_CONFIG, DRAG_CONFIG } from './GameConstants';
-const BOARD_CHECK_CONFIG = { CHECK_INTERVAL: 5000 }; // 5초 체크 간격
+import { GAME_CONFIG, COMBO_CONFIG, SCORE_CONFIG, ANIMATION_CONFIG, SOUND_CONFIG, DRAG_CONFIG, BOARD_CHECK_CONFIG } from './GameConstants';
 
 export class AnipangScene extends Phaser.Scene {
   constructor() {
@@ -248,12 +247,13 @@ export class AnipangScene extends Phaser.Scene {
 
   /**
    * Gem 크기 복원
+   * 주의: SPECIAL_GEM_SCALE=1.0 유지 (누적 스케일링 버그 회피)
    */
   restoreGemSize(gem) {
     if (gem.texture.key === 'bomb' || gem.texture.key === 'dog') {
-      gem.setDisplaySize(this.gemSize * 1.2, this.gemSize * 1.2);
+      gem.setDisplaySize(this.gemSize * GAME_CONFIG.SPECIAL_GEM_SCALE, this.gemSize * GAME_CONFIG.SPECIAL_GEM_SCALE);
     } else {
-      gem.setDisplaySize(this.gemSize - 2, this.gemSize - 2);
+      gem.setDisplaySize(this.gemSize - GAME_CONFIG.GEM_SIZE_OFFSET, this.gemSize - GAME_CONFIG.GEM_SIZE_OFFSET);
     }
   }
 
@@ -618,19 +618,7 @@ export class AnipangScene extends Phaser.Scene {
     });
 
     // 3단계: 물리적 좌표 겹침 체크 (추가 안전장치)
-    const physicalMap = new Map(); // "x,y" → gem list
-    for (let row = 0; row < this.boardSize.rows; row++) {
-      for (let col = 0; col < this.boardSize.cols; col++) {
-        const gem = this.boardManager.gems[row][col];
-        if (gem && gem.active !== false) {
-          const key = `${Math.round(gem.x)},${Math.round(gem.y)}`;
-          if (!physicalMap.has(key)) {
-            physicalMap.set(key, []);
-          }
-          physicalMap.get(key).push({ gem, row, col });
-        }
-      }
-    }
+    const physicalMap = this.boardManager.detectPhysicalOverlaps();
 
     // 겹친 gem 제거 (진행 중인 애니메이션 먼저 정리)
     physicalMap.forEach((gemList, key) => {
@@ -713,7 +701,8 @@ export class AnipangScene extends Phaser.Scene {
 
     // 파티클 정리
     if (this.particleManager) {
-      this.particleManager.emitParticleAt(0, 0, 1);
+      this.particleManager.destroy();
+      this.particleManager = null;
     }
   }
 }

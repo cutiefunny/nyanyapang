@@ -265,7 +265,7 @@ export class ExplosionManager {
     if (candidates.length > 0) {
       const target = Phaser.Math.RND.pick(candidates);
       target.setTexture('bomb');
-      target.setDisplaySize(this.boardManager.gemSize * 1.0, this.boardManager.gemSize * 1.0);
+      this.scene.restoreGemSize(target);
       this.scene.restoreGemTint(target);
       this.scene.addPulseTween(target);
       this.scene.showComboText(target.x, target.y, "BOMB!");
@@ -290,7 +290,7 @@ export class ExplosionManager {
     if (candidates.length > 0) {
       const target = Phaser.Math.RND.pick(candidates);
       target.setTexture('dog', 0);
-      target.setDisplaySize(this.boardManager.gemSize * 1.0, this.boardManager.gemSize * 1.0);
+      this.scene.restoreGemSize(target);
       this.scene.restoreGemTint(target);
       this.scene.addPulseTween(target);
       this.scene.showComboText(target.x, target.y, "DOG!");

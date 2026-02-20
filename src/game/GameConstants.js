@@ -10,7 +10,7 @@ export const GAME_CONFIG = {
   
   // Gem 크기
   GEM_SIZE_OFFSET: 2,        // gemSize - 2 (일반)
-  SPECIAL_GEM_SCALE: 1.2,    // bomb/dog: gemSize * 1.2
+  SPECIAL_GEM_SCALE: 1.0,    // bomb/dog: gemSize * 1.0 (누적 스케일링 버그 회피)
 };
 
 export const COMBO_CONFIG = {

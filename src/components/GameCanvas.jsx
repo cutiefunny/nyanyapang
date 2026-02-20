@@ -118,6 +118,12 @@ export default function GameCanvas(props) {
     
     window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
     window.addEventListener('mousedown', unlockAudio, { once: true });
+
+    // { once: true }는 이벤트 미발생 시 자동 제거되지 않으므로 명시적 제거 등록
+    onCleanup(() => {
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('mousedown', unlockAudio);
+    });
   });
 
   onCleanup(() => {
