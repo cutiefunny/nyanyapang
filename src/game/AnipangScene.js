@@ -33,6 +33,7 @@ export class AnipangScene extends Phaser.Scene {
     this.boardSize = { rows: 8, cols: 8 };
     this.selectedGem = null;
     this.isProcessing = false;
+    this.processingStartTime = 0; // isProcessing 타임아웃 추적
     this.comboCount = 0;
     this.offsetX = 0;
     this.offsetY = 0;
@@ -165,6 +166,22 @@ export class AnipangScene extends Phaser.Scene {
   }
 
   update() {
+    // isProcessing 타임아웃 체크 (5초 이상 true면 강제 복구 - 무한 대기 방지)
+    if (this.isProcessing) {
+      if (this.processingStartTime === 0) {
+        this.processingStartTime = Date.now();
+      }
+      const elapsedTime = Date.now() - this.processingStartTime;
+      if (elapsedTime > 5000) {
+        console.warn('[경고] isProcessing이 5초 이상 유지됨. 강제 복구합니다.');
+        this.isProcessing = false;
+        this.processingStartTime = 0;
+        this.draggingGem = null;
+      }
+    } else {
+      this.processingStartTime = 0;
+    }
+
     // 겹친 gem 감지 및 수정 (매 프레임)
     this.boardManager.fixOverlappingGems();
     
@@ -274,7 +291,7 @@ export class AnipangScene extends Phaser.Scene {
    * Gem 다운 이벤트
    */
   onGemDown(pointer, gem) {
-    if (this.isProcessing) return;
+    if (this.isProcessing || !gem || !gem.active || !gem.texture) return;
 
     if (!this.timerStarted) {
       this.startCountdown();
@@ -314,7 +331,10 @@ export class AnipangScene extends Phaser.Scene {
    */
   endGame() {
     this.isProcessing = true;
+
+    // 입력 비활성화 (게임 오버 후)
     this.input.enabled = false;
+    
     this.tweens.killAll();
     if (this._tickEvent) this._tickEvent.remove(false);
     if (this._endTimer) this._endTimer.remove(false);
@@ -326,6 +346,12 @@ export class AnipangScene extends Phaser.Scene {
    */
   onPointerMove(pointer) {
     if (this.isProcessing || !this.draggingGem) return;
+
+    // draggingGem이 여전히 유효한지 검증
+    if (!this.draggingGem.active || !this.draggingGem.texture) {
+      this.draggingGem = null;
+      return;
+    }
 
     const dist = Phaser.Math.Distance.Between(this.dragStartX, this.dragStartY, pointer.x, pointer.y);
     const sensitivity = Math.max(DRAG_CONFIG.DRAG_MIN_DISTANCE, this.gemSize * DRAG_CONFIG.DRAG_BASE_SENSITIVITY);
@@ -344,14 +370,16 @@ export class AnipangScene extends Phaser.Scene {
 
       if (this.boardManager.isValidSlot(targetRow, targetCol)) {
         const targetGem = this.boardManager.gems[targetRow][targetCol];
-        if (targetGem) {
+        if (targetGem && targetGem.active && targetGem.texture) {
           if (this.selectedGem) {
             this.restoreGemTint(this.selectedGem);
             this.restoreGemSize(this.selectedGem);
             this.selectedGem = null;
           }
-          this.swapGems(this.draggingGem, targetGem);
+          
+          const currentDragging = this.draggingGem;
           this.draggingGem = null;
+          this.swapGems(currentDragging, targetGem);
         }
       }
     }
@@ -361,10 +389,17 @@ export class AnipangScene extends Phaser.Scene {
    * 포인터 업
    */
   onPointerUp(pointer) {
-    if (this.draggingGem && !this.isProcessing) {
-        this.handleGemClick(this.draggingGem);
-    }
+    const draggingGem = this.draggingGem;
     this.draggingGem = null;
+    
+    if (draggingGem && !this.isProcessing && draggingGem.active && draggingGem.texture) {
+      try {
+        this.handleGemClick(draggingGem);
+      } catch (e) {
+        console.error('[Error] onPointerUp 처리 중 예외:', e);
+        this.isProcessing = false;
+      }
+    }
   }
 
   /**
@@ -440,8 +475,14 @@ export class AnipangScene extends Phaser.Scene {
    */
   swapGems(gem1, gem2) {
     // 선택된 gem이 유효한지 검증
-    if (!gem1 || !gem2 || gem1.active === false || gem2.active === false) {
+    if (!gem1 || !gem2 || gem1.active === false || gem2.active === false || 
+        !gem1.texture || !gem2.texture) {
       this.isProcessing = false;
+      return;
+    }
+
+    // 이미 처리 중이면 중복 호출 방지
+    if (this.isProcessing) {
       return;
     }
 
@@ -462,128 +503,169 @@ export class AnipangScene extends Phaser.Scene {
     gem2.row = gem1OriginalRow;
     gem2.col = gem1OriginalCol;
 
-    this.tweens.add({
-      targets: [gem1, gem2],
-      x: (target) => this.boardManager.getGemX(target.col),
-      y: (target) => this.boardManager.getGemY(target.row),
-      duration: 300,
-      ease: 'Power2',
-      onComplete: () => {
-        // 애니메이션 완료 후 gem이 여전히 유효한지 확인
-        if (!gem1 || !gem2 || gem1.active === false || gem2.active === false) {
-          this.isProcessing = false;
-          return;
-        }
+    try {
+      this.tweens.add({
+        targets: [gem1, gem2],
+        x: (target) => this.boardManager.getGemX(target.col),
+        y: (target) => this.boardManager.getGemY(target.row),
+        duration: 300,
+        ease: 'Power2',
+        onComplete: () => {
+          try {
+            // 애니메이션 완료 후 gem이 여전히 유효한지 확인
+            if (!gem1 || !gem2 || gem1.active === false || gem2.active === false || 
+                !gem1.texture || !gem2.texture) {
+              this.isProcessing = false;
+              return;
+            }
 
-        const matches = this.matchChecker.checkMatches();
-        if (matches.length > 0) {
-          this.handleMatches();
-        } else {
-          this.swapGemsReverse(gem1, gem2, gem1OriginalRow, gem1OriginalCol, gem2OriginalRow, gem2OriginalCol);
+            const matches = this.matchChecker.checkMatches();
+            if (matches.length > 0) {
+              this.handleMatches();
+            } else {
+              this.swapGemsReverse(gem1, gem2, gem1OriginalRow, gem1OriginalCol, gem2OriginalRow, gem2OriginalCol);
+            }
+          } catch (e) {
+            console.error('[Error] swapGems onComplete 처리 중 예외:', e);
+            this.isProcessing = false;
+          }
         }
-      }
-    });
+      });
+    } catch (e) {
+      console.error('[Error] swapGems tween 생성 중 예외:', e);
+      this.isProcessing = false;
+    }
   }
 
   /**
    * Gem 스왑 역순 (실패 시)
    */
   swapGemsReverse(gem1, gem2, gem1OrigRow, gem1OrigCol, gem2OrigRow, gem2OrigCol) {
-    const gems = this.boardManager.gems;
-    gems[gem1OrigRow][gem1OrigCol] = gem1;
-    gems[gem2OrigRow][gem2OrigCol] = gem2;
+    try {
+      const gems = this.boardManager.gems;
+      gems[gem1OrigRow][gem1OrigCol] = gem1;
+      gems[gem2OrigRow][gem2OrigCol] = gem2;
 
-    gem1.row = gem1OrigRow;
-    gem1.col = gem1OrigCol;
-    gem2.row = gem2OrigRow;
-    gem2.col = gem2OrigCol;
+      gem1.row = gem1OrigRow;
+      gem1.col = gem1OrigCol;
+      gem2.row = gem2OrigRow;
+      gem2.col = gem2OrigCol;
 
-    this.tweens.add({
-      targets: [gem1, gem2],
-      x: (target) => this.boardManager.getGemX(target.col),
-      y: (target) => this.boardManager.getGemY(target.row),
-      duration: ANIMATION_CONFIG.GEM_SWAP_DURATION,
-      ease: ANIMATION_CONFIG.GEM_SWAP_EASE,
-      onComplete: () => {
-        this.isProcessing = false;
-      }
-    });
+      this.tweens.add({
+        targets: [gem1, gem2],
+        x: (target) => this.boardManager.getGemX(target.col),
+        y: (target) => this.boardManager.getGemY(target.row),
+        duration: ANIMATION_CONFIG.GEM_SWAP_DURATION,
+        ease: ANIMATION_CONFIG.GEM_SWAP_EASE,
+        onComplete: () => {
+          this.isProcessing = false;
+        }
+      });
+    } catch (e) {
+      console.error('[Error] swapGemsReverse 중 예외:', e);
+      this.isProcessing = false;
+    }
   }
 
   /**
    * 매칭 처리
    */
   handleMatches() {
-    const matches = this.matchChecker.checkMatches();
-    if (matches.length === 0) {
-      this.isProcessing = false;
-      return;
-    }
-
-    this.comboCount++;
-    const score = matches.length * SCORE_CONFIG.MATCH_BASE * this.comboCount;
-    this.addScore(score);
-
-    let centerX = 0, centerY = 0;
-    matches.forEach(gem => {
-      centerX += gem.x;
-      centerY += gem.y;
-      this.playMatchSound();
-      this.createExplosionEffect(gem);
-      if (gem.active) {
-        this.boardManager.gems[gem.row][gem.col] = null;
-        gem.destroy();
+    try {
+      const matches = this.matchChecker.checkMatches();
+      if (matches.length === 0) {
+        this.isProcessing = false;
+        return;
       }
-    });
 
-    if (matches.length > 0) {
-      this.uiManager.showComboText(centerX / matches.length, centerY / matches.length, this.comboCount);
-    }
+      this.comboCount++;
+      const score = matches.length * SCORE_CONFIG.MATCH_BASE * this.comboCount;
+      this.addScore(score);
 
-    if (this.comboCount >= COMBO_CONFIG.BOMB_THRESHOLD) {
-      this.explosionManager.createBomb();
-    } else if (this.comboCount === COMBO_CONFIG.DOG_THRESHOLD) {
-      this.explosionManager.createDog();
-    }
-
-    if (this.comboCount >= COMBO_CONFIG.FLASH_THRESHOLD) {
-      this.cameras.main.flash(200, 255, 255, 255);
-    }
-
-    this.isProcessing = false;
-    this.time.delayedCall(200, () => {
-      const maxDuration = this.boardManager.fillBoard();
-      this.time.delayedCall(maxDuration + 150, () => {
-        // 보드의 반이 비워졌는지 체크
-        if (this.isBoardHalfEmpty()) {
-          this.activateFeverTime();
-        } else {
-          this.handleMatchesAfterExplosion();
+      let centerX = 0, centerY = 0;
+      matches.forEach(gem => {
+        centerX += gem.x;
+        centerY += gem.y;
+        this.playMatchSound();
+        this.createExplosionEffect(gem);
+        if (gem.active) {
+          this.boardManager.gems[gem.row][gem.col] = null;
+          gem.destroy();
         }
       });
-    });
+
+      if (matches.length > 0) {
+        this.uiManager.showComboText(centerX / matches.length, centerY / matches.length, this.comboCount);
+      }
+
+      if (this.comboCount >= COMBO_CONFIG.BOMB_THRESHOLD) {
+        this.explosionManager.createBomb();
+      } else if (this.comboCount === COMBO_CONFIG.DOG_THRESHOLD) {
+        this.explosionManager.createDog();
+      }
+
+      if (this.comboCount >= COMBO_CONFIG.FLASH_THRESHOLD) {
+        this.cameras.main.flash(200, 255, 255, 255);
+      }
+
+      this.isProcessing = false;
+      this.time.delayedCall(200, () => {
+        try {
+          const maxDuration = this.boardManager.fillBoard();
+          this.time.delayedCall(maxDuration + 150, () => {
+            try {
+              // 보드의 반이 비워졌는지 체크
+              if (this.isBoardHalfEmpty()) {
+                this.activateFeverTime();
+              } else {
+                this.handleMatchesAfterExplosion();
+              }
+            } catch (e) {
+              console.error('[Error] handleMatches delayedCall 중 예외:', e);
+              this.isProcessing = false;
+            }
+          });
+        } catch (e) {
+          console.error('[Error] handleMatches fillBoard 중 예외:', e);
+          this.isProcessing = false;
+        }
+      });
+    } catch (e) {
+      console.error('[Error] handleMatches 중 예외:', e);
+      this.isProcessing = false;
+    }
   }
 
   /**
    * 폭발 후 매칭 처리
    */
   handleMatchesAfterExplosion() {
-    if (this.matchChecker.checkMatches().length > 0) {
-      this.handleMatches();
-    } else {
-      if (this.boardManager.enforceNoEmptySlots()) {
-        this.time.delayedCall(500, () => {
-          if (this.matchChecker.checkMatches().length > 0) {
-            this.handleMatches();
-          } else {
-            // 피버타임 상태면 새로운 블록들에 tween 적용
-            this.applyFeverTweenToNewGems();
-          }
-        });
+    try {
+      if (this.matchChecker.checkMatches().length > 0) {
+        this.handleMatches();
       } else {
-        // 피버타임 상태면 새로운 블록들에 tween 적용
-        this.applyFeverTweenToNewGems();
+        if (this.boardManager.enforceNoEmptySlots()) {
+          this.time.delayedCall(500, () => {
+            try {
+              if (this.matchChecker.checkMatches().length > 0) {
+                this.handleMatches();
+              } else {
+                // 피버타임 상태면 새로운 블록들에 tween 적용
+                this.applyFeverTweenToNewGems();
+              }
+            } catch (e) {
+              console.error('[Error] handleMatchesAfterExplosion delayedCall 중 예외:', e);
+              this.isProcessing = false;
+            }
+          });
+        } else {
+          // 피버타임 상태면 새로운 블록들에 tween 적용
+          this.applyFeverTweenToNewGems();
+        }
       }
+    } catch (e) {
+      console.error('[Error] handleMatchesAfterExplosion 중 예외:', e);
+      this.isProcessing = false;
     }
   }
 
