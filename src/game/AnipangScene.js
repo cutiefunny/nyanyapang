@@ -10,19 +10,25 @@ import img6 from '../assets/6.png';
 import bombImg from '../assets/bomb.png';
 import dogWalkImg from '../assets/dog_walk.png'; 
 import backgroundImg from '../assets/background.jpg'; 
+import bossImg from '../assets/boss1.png';
+import wawaImg from '../assets/wawa.png';
 
 // 사운드 에셋
 import soundOuch1 from '../assets/Ouch1.mp3';
 import soundOuch2 from '../assets/Ouch2.mp3';
 import bgm from '../assets/level1.mp3';
+import bgmBoss from '../assets/level4.mp3';
 import bombSound from '../assets/Boom.wav';
+import hitSound1 from '../assets/Hit1.wav';
+import hitSound2 from '../assets/Hit2.wav';
+import hitSound3 from '../assets/Hit3.wav';
 
 // 매니저 임포트
 import { BoardManager } from './BoardManager';
 import { MatchChecker } from './MatchChecker';
 import { ExplosionManager } from './ExplosionManager';
 import { UIManager } from './UIManager';
-import { GAME_CONFIG, COMBO_CONFIG, SCORE_CONFIG, ANIMATION_CONFIG, SOUND_CONFIG, DRAG_CONFIG, BOARD_CHECK_CONFIG, FEVER_CONFIG } from './GameConstants';
+import { GAME_CONFIG, COMBO_CONFIG, SCORE_CONFIG, ANIMATION_CONFIG, SOUND_CONFIG, DRAG_CONFIG, BOARD_CHECK_CONFIG, FEVER_CONFIG, BOSS_CONFIG } from './GameConstants';
 
 export class AnipangScene extends Phaser.Scene {
   constructor() {
@@ -83,6 +89,26 @@ export class AnipangScene extends Phaser.Scene {
     // 피버타임
     this.feverTimeActive = false;
     this.feverTimeEvent = null;
+
+    // 보스전
+    this.bossMode = false;
+    this.bossActive = false;
+    this.bossRound = 0;
+    this.bossHitsRemaining = 0;
+    this.bossHitsRemaining_current = 0;
+    this.boss = null;
+    this.bossOverlay = null;
+    this.nextBossScoreThreshold = BOSS_CONFIG.SPAWN_SCORE_THRESHOLD;
+    this.bossHitsText = null;
+    this.bossDamage = 0;
+    
+    // 보스 AI
+    this.bossAttackTimer = 0;
+    this.bossMovementTimer = 0;
+    this.bossTargetX = 0;
+    this.bossTargetY = 0;
+    this.bossMoveVelocityX = 0;
+    this.bossMoveVelocityY = 0;
   }
 
   preload() {
@@ -94,11 +120,17 @@ export class AnipangScene extends Phaser.Scene {
     this.load.image('gem6', img6);
     this.load.image('bomb', bombImg);
     this.load.image('background', backgroundImg);
+    this.load.image('boss', bossImg);
     this.load.spritesheet('dog', dogWalkImg, { frameWidth: 100, frameHeight: 100 });
+    this.load.spritesheet('wawa', wawaImg, { frameWidth: BOSS_CONFIG.FRAME_WIDTH, frameHeight: BOSS_CONFIG.FRAME_HEIGHT });
     this.load.audio('ouch1', soundOuch1);
     this.load.audio('ouch2', soundOuch2);
     this.load.audio('bgm', bgm);
+    this.load.audio('bgm_boss', bgmBoss);
     this.load.audio('bomb', bombSound);
+    this.load.audio('hit1', hitSound1);
+    this.load.audio('hit2', hitSound2);
+    this.load.audio('hit3', hitSound3);
   }
 
   create() {
@@ -191,6 +223,51 @@ export class AnipangScene extends Phaser.Scene {
       this.boardCheckTimer = 0;
       this.checkBoardEmptySpaces();
     }
+
+    // 보스 AI 업데이트
+    if (this.bossMode && this.bossActive && this.boss) {
+      this.updateBossAI();
+    }
+  }
+
+  /**
+   * 보스 AI 업데이트
+   */
+  updateBossAI() {
+    if (!this.boss || !this.boss.active) return;
+
+    const deltaTime = this.game.loop.delta;
+
+    // 보스 이동 업데이트
+    this.boss.x += this.bossMoveVelocityX * (deltaTime / 1000);
+    this.boss.y += this.bossMoveVelocityY * (deltaTime / 1000);
+
+    // 화면 경계 체크
+    const padding = 150;
+    if (this.boss.x < padding || this.boss.x > this.scale.width - padding ||
+        this.boss.y < padding || this.boss.y > this.scale.height - padding * 2) {
+      this.setNewBossMoveTarget();
+    }
+
+    // 목표 도달 확인
+    const distToTarget = Phaser.Math.Distance.Between(this.boss.x, this.boss.y, this.bossTargetX, this.bossTargetY);
+    if (distToTarget < BOSS_CONFIG.MIN_MOVE_DISTANCE) {
+      this.setNewBossMoveTarget();
+    }
+
+    // 이동 방향 변경 타이머
+    this.bossMovementTimer += deltaTime;
+    if (this.bossMovementTimer >= BOSS_CONFIG.MOVE_CHANGE_INTERVAL) {
+      this.bossMovementTimer = 0;
+      this.setNewBossMoveTarget();
+    }
+
+    // 공격 타이머
+    this.bossAttackTimer += deltaTime;
+    if (this.bossAttackTimer >= BOSS_CONFIG.ATTACK_INTERVAL) {
+      this.bossAttackTimer = 0;
+      this.performBossAttack();
+    }
   }
 
   /**
@@ -264,6 +341,12 @@ export class AnipangScene extends Phaser.Scene {
       this.uiManager.grantTimeBonus();
       this.nextBonusThreshold += SCORE_CONFIG.BONUS_THRESHOLD;
     }
+
+    // 보스전 시작 점수 체크 (배수마다 반복)
+    if (this.score >= this.nextBossScoreThreshold) {
+      this.nextBossScoreThreshold += BOSS_CONFIG.SPAWN_SCORE_THRESHOLD;
+      this.startBossMode();
+    }
   }
 
   /**
@@ -291,7 +374,7 @@ export class AnipangScene extends Phaser.Scene {
    * Gem 다운 이벤트
    */
   onGemDown(pointer, gem) {
-    if (this.isProcessing || !gem || !gem.active || !gem.texture) return;
+    if (this.bossMode || this.isProcessing || !gem || !gem.active || !gem.texture) return;
 
     if (!this.timerStarted) {
       this.startCountdown();
@@ -345,7 +428,7 @@ export class AnipangScene extends Phaser.Scene {
    * 포인터 이동
    */
   onPointerMove(pointer) {
-    if (this.isProcessing || !this.draggingGem) return;
+    if (this.bossMode || this.isProcessing || !this.draggingGem) return;
 
     // draggingGem이 여전히 유효한지 검증
     if (!this.draggingGem.active || !this.draggingGem.texture) {
@@ -389,6 +472,8 @@ export class AnipangScene extends Phaser.Scene {
    * 포인터 업
    */
   onPointerUp(pointer) {
+    if (this.bossMode) return;
+    
     const draggingGem = this.draggingGem;
     this.draggingGem = null;
     
@@ -798,6 +883,387 @@ export class AnipangScene extends Phaser.Scene {
   }
 
   /**
+   * 보스전 시작
+   */
+  startBossMode() {
+    console.log('[보스] 보스전 시작!');
+    this.bossMode = true;
+    this.bossActive = true;
+    this.bossRound = 1;
+
+    // BGM 변경
+    this.sound.stopByKey('bgm');
+    this.sound.play('bgm_boss', { loop: true, volume: SOUND_CONFIG.BGM_VOLUME });
+
+    // 화면 어두워지는 오버레이 생성
+    this.bossOverlay = this.add.rectangle(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      this.scale.width,
+      this.scale.height,
+      0x000000,
+      0
+    );
+    this.bossOverlay.setDepth(1000);
+
+    // 오버레이 페이드인
+    this.tweens.add({
+      targets: this.bossOverlay,
+      alpha: 0.7,
+      duration: BOSS_CONFIG.FADE_DURATION,
+      onComplete: () => {
+        // 오버레이 클릭 처리 (아무것도 하지 않음)
+        this.bossOverlay.setInteractive();
+        this.bossOverlay.on('pointerdown', () => {
+          // 오버레이 클릭은 무시
+        });
+
+        // 첫 보스 생성
+        this.spawnBoss();
+      }
+    });
+
+    // "BOSS ATTACK!" 텍스트 표시
+    const bossText = this.add.text(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      'BOSS ATTACK!',
+      {
+        fontSize: '80px',
+        fontFamily: 'Arial Black',
+        fill: '#ff0000',
+        stroke: '#000000',
+        strokeThickness: 8
+      }
+    );
+    bossText.setOrigin(0.5);
+    bossText.setDepth(1001);
+    bossText.setAlpha(0);
+
+    this.tweens.add({
+      targets: bossText,
+      alpha: 1,
+      scale: 1.2,
+      duration: 500,
+      onComplete: () => {
+        this.tweens.add({
+          targets: bossText,
+          alpha: 0,
+          duration: 500,
+          delay: 1000,
+          onComplete: () => {
+            bossText.destroy();
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * 보스 생성 - 랜덤 위치
+   */
+  spawnBoss() {
+    if (this.boss && this.boss.active) {
+      this.boss.destroy();
+    }
+
+    // 보스 클릭 회수 동적 계산
+    this.bossHitsRemaining = Math.floor(this.score / 10000);
+    this.bossDamage = Math.floor(this.score / 20000);
+    
+    console.log(`[보스] 점수: ${this.score}, 클릭 필요: ${this.bossHitsRemaining}회, 공격 데미지: ${this.bossDamage}초`);
+
+    // 보드 영역 내의 랜덤 위치 계산
+    const padding = 100;
+    const randomX = Phaser.Math.Between(
+      padding,
+      this.scale.width - padding
+    );
+    const randomY = Phaser.Math.Between(
+      padding,
+      this.scale.height - padding * 2
+    );
+
+    // 보스 스프라이트 생성 (wawa 스프라이트시트 사용)
+    this.boss = this.add.sprite(randomX, randomY, 'wawa');
+    this.boss.setScale(BOSS_CONFIG.BOSS_SCALE);
+    this.boss.setDepth(1001);
+    this.boss.setInteractive();
+    this.boss.setAlpha(0);
+
+    // 보스 애니메이션 설정
+    if (!this.anims.exists('boss_walk')) {
+      this.anims.create({
+        key: 'boss_walk',
+        frames: this.anims.generateFrameNumbers('wawa', { frames: BOSS_CONFIG.WALK_FRAMES }),
+        frameRate: BOSS_CONFIG.WALK_ANIMATION_SPEED,
+        repeat: -1
+      });
+    }
+
+    // 보스 나타나기 애니메이션
+    this.tweens.add({
+      targets: this.boss,
+      alpha: 1,
+      scale: BOSS_CONFIG.BOSS_SCALE,
+      duration: BOSS_CONFIG.SPAWN_ANIMATION_DURATION,
+      ease: 'Back.easeOut'
+    });
+
+    // 보스 클릭 이벤트
+    this.boss.on('pointerdown', () => this.onBossClicked());
+
+    // 보스 아래 남은 클릭 회수 표시
+    this.bossHitsText = this.add.text(
+      this.boss.x,
+      this.boss.y + BOSS_CONFIG.HITS_TEXT_OFFSET_Y,
+      `${this.bossHitsRemaining}`,
+      {
+        fontSize: BOSS_CONFIG.HITS_TEXT_FONT_SIZE,
+        fontFamily: 'Arial Black',
+        fill: BOSS_CONFIG.HITS_TEXT_COLOR
+      }
+    );
+    this.bossHitsText.setOrigin(0.5);
+    this.bossHitsText.setDepth(1002);
+
+    // 보스 AI 초기화
+    this.bossAttackTimer = 0;
+    this.bossMovementTimer = 0;
+    this.setNewBossMoveTarget();
+    this.boss.play('boss_walk');
+
+    console.log(`[보스] 라운드 ${this.bossRound}, 보스 생성 (클릭 필요: ${this.bossHitsRemaining}회)`);
+  }
+
+  /**
+   * 보스 새로운 이동 목표 설정
+   */
+  setNewBossMoveTarget() {
+    if (!this.boss) return;
+
+    const padding = 150;
+    const targetX = Phaser.Math.Between(padding, this.scale.width - padding);
+    const targetY = Phaser.Math.Between(padding, this.scale.height - padding * 2);
+
+    const angle = Phaser.Math.Angle.Between(this.boss.x, this.boss.y, targetX, targetY);
+    this.bossMoveVelocityX = Math.cos(angle) * BOSS_CONFIG.MOVEMENT_SPEED;
+    this.bossMoveVelocityY = Math.sin(angle) * BOSS_CONFIG.MOVEMENT_SPEED;
+
+    this.bossTargetX = targetX;
+    this.bossTargetY = targetY;
+  }
+
+  /**
+   * 보스 클릭 처리
+   */
+  onBossClicked() {
+    if (!this.bossActive || !this.boss) return;
+
+    console.log(`[보스] 클릭! 남은 횟수: ${this.bossHitsRemaining - 1}`);
+    this.bossHitsRemaining--;
+
+    // 클릭 회수 텍스트 업데이트
+    if (this.bossHitsText) {
+      this.bossHitsText.setText(`${this.bossHitsRemaining}`);
+    }
+
+    // 타격음 재생
+    if (this.soundEnabled) {
+      const hitSounds = ['hit1', 'hit2', 'hit3'];
+      const randomHitSound = Phaser.Utils.Array.GetRandom(hitSounds);
+      this.sound.play(randomHitSound, { volume: 0.5 });
+    }
+
+    // 타격 모션 (프레임 4)
+    this.boss.setFrame(BOSS_CONFIG.HIT_FRAME);
+
+    // 타격 애니메이션
+    this.tweens.add({
+      targets: this.boss,
+      scale: BOSS_CONFIG.BOSS_SCALE * 0.85,
+      duration: BOSS_CONFIG.HIT_ANIMATION_DURATION,
+      yoyo: true,
+      onComplete: () => {
+        // 애니메이션 완료 후 걷기로 복귀
+        if (this.boss && this.bossActive) {
+          this.boss.play('boss_walk');
+        }
+      }
+    });
+
+    // 파티클 이펙트
+    this.particleManager.emitParticleAt(this.boss.x, this.boss.y, 15);
+    this.particleManager.setParticleTint(0xff0000);
+
+    if (this.bossHitsRemaining <= 0) {
+      this.completeBossRound();
+    }
+  }
+
+  /**
+   * 보스 공격 수행
+   */
+  performBossAttack() {
+    if (!this.bossActive || !this.boss) return;
+
+    console.log(`[보스] 공격! 플레이어 시간 -${this.bossDamage}초`);
+
+    // 공격음 재생
+    if (this.soundEnabled) {
+      const ouchSounds = ['ouch1', 'ouch2'];
+      const randomOuchSound = Phaser.Utils.Array.GetRandom(ouchSounds);
+      this.sound.play(randomOuchSound, { volume: SOUND_CONFIG.SOUND_VOLUME_BASE });
+    }
+
+    // 공격 모션 (프레임 3)
+    this.boss.setFrame(BOSS_CONFIG.ATTACK_FRAME);
+
+    // 공격 애니메이션
+    this.tweens.add({
+      targets: this.boss,
+      scaleX: BOSS_CONFIG.BOSS_SCALE * 0.95,
+      scaleY: BOSS_CONFIG.BOSS_SCALE * 1.05,
+      duration: BOSS_CONFIG.ATTACK_ANIMATION_DURATION,
+      yoyo: true,
+      onComplete: () => {
+        // 애니메이션 완료 후 걷기로 복귀
+        if (this.boss && this.bossActive) {
+          this.boss.play('boss_walk');
+        }
+      }
+    });
+
+    // 플레이어 시간 감소 (동적 계산된 데미지 사용)
+    this.timeLeft = Math.max(0, this.timeLeft - this.bossDamage);
+    if (this.game && this.game.events) {
+      this.game.events.emit('tick', this.timeLeft);
+    }
+
+    // 공격 파티클
+    this.particleManager.emitParticleAt(this.boss.x, this.boss.y, 10);
+    this.particleManager.setParticleTint(0xff6666);
+  }
+
+  /**
+   * 보스 라운드 완료
+   */
+  completeBossRound() {
+    if (!this.boss) return;
+
+    console.log(`[보스] 라운드 ${this.bossRound} 완료!`);
+
+    this.bossActive = false;
+    this.bossHitsRemaining = 0;
+
+    // 죽음 사운드 재생
+    if (this.soundEnabled) {
+      this.sound.play('bomb', { volume: 0.7 });
+    }
+
+    // 화면 빨간색 깜빡임
+    this.cameras.main.flash(200, 255, 0, 0);
+
+    // 보스 죽음 애니메이션
+    this.tweens.killTweensOf(this.boss);
+    this.boss.stop();
+
+    this.tweens.add({
+      targets: this.boss,
+      alpha: 0,
+      scaleX: 0,
+      scaleY: 0,
+      angle: 360,
+      duration: 500,
+      ease: 'Power2.easeIn',
+      onComplete: () => {
+        if (this.boss) {
+          this.boss.destroy();
+          this.boss = null;
+        }
+        if (this.bossHitsText) {
+          this.bossHitsText.destroy();
+          this.bossHitsText = null;
+        }
+
+        if (this.bossRound >= BOSS_CONFIG.TOTAL_ROUNDS) {
+          this.completeBossMode();
+        } else {
+          this.bossRound++;
+
+          // 라운드 간 딜레이
+          this.time.delayedCall(1000, () => {
+            this.spawnBoss();
+          });
+        }
+      }
+    });
+
+    // 승리 파티클
+    for (let i = 0; i < 30; i++) {
+      this.particleManager.emitParticleAt(this.boss.x, this.boss.y, 1);
+    }
+    this.particleManager.setParticleTint(0xffff00);
+  }
+
+  /**
+   * 보스전 클리어
+   */
+  completeBossMode() {
+    console.log('[보스] 보스전 클리어!');
+    this.bossMode = false;
+    this.bossActive = false;
+
+    // BGM 복구
+    this.sound.stopByKey('bgm_boss');
+    this.sound.play('bgm', { loop: true, volume: SOUND_CONFIG.BGM_VOLUME });
+
+    // 타임 보너스 지급
+    this.uiManager.grantTimeBonus();
+    this.uiManager.grantTimeBonus();
+    this.uiManager.grantTimeBonus();
+
+    // 클리어 텍스트 표시
+    const clearText = this.add.text(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      'BOSS CLEAR\n+30 SECONDS!',
+      {
+        fontSize: '70px',
+        fontFamily: 'Arial Black',
+        fill: '#00ff00',
+        stroke: '#000000',
+        strokeThickness: 8,
+        align: 'center'
+      }
+    );
+    clearText.setOrigin(0.5);
+    clearText.setDepth(1002);
+
+    this.tweens.add({
+      targets: clearText,
+      alpha: 0,
+      scale: 0.8,
+      duration: 2000,
+      delay: 1000,
+      onComplete: () => {
+        clearText.destroy();
+
+        // 오버레이 페이드아웃
+        this.tweens.add({
+          targets: this.bossOverlay,
+          alpha: 0,
+          duration: BOSS_CONFIG.FADE_DURATION,
+          onComplete: () => {
+            this.bossOverlay.destroy();
+            this.bossOverlay = null;
+          }
+        });
+      }
+    });
+  }
+
+  /**
    * 보드 상태 체크: 빈공간 + 겹친 gem (10초마다 실행)
    * 겹친 gem이 발견되면 depth가 낮은 gem을 삭제
    * 빈공간은 박스로 시각화하여 디버깅
@@ -915,6 +1381,20 @@ export class AnipangScene extends Phaser.Scene {
     if (this.sound) {
       this.sound.stopAll();
       this.sound.unlock();
+    }
+
+    // 보스 정리
+    if (this.boss && this.boss.destroy) {
+      this.boss.destroy();
+      this.boss = null;
+    }
+    if (this.bossOverlay && this.bossOverlay.destroy) {
+      this.bossOverlay.destroy();
+      this.bossOverlay = null;
+    }
+    if (this.bossHitsText && this.bossHitsText.destroy) {
+      this.bossHitsText.destroy();
+      this.bossHitsText = null;
     }
 
     // 매니저 정리

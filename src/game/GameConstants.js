@@ -126,6 +126,45 @@ export const DRAG_CONFIG = {
   DRAG_BASE_SENSITIVITY: 0.4,   // gemSize * 0.4
   DRAG_MIN_DISTANCE: 20,
 };
+
+export const BOSS_CONFIG = {
+  SPAWN_SCORE_THRESHOLD: 200000,  // 보스전 시작 점수 배수 기준 (20만점)
+  // HITS_PER_ROUND와 ATTACK_DAMAGE는 동적으로 계산됨
+  // HITS_PER_ROUND = Math.floor(현재점수 / 10000)
+  // ATTACK_DAMAGE = Math.floor(현재점수 / 20000)
+  TOTAL_ROUNDS: 1,                // 보스전 클리어까지의 라운드 수
+  FADE_DURATION: 500,             // 화면 어두워지는 시간 (ms)
+  BOSS_SCALE: 1,                  // 보스 크기 배수
+  SPAWN_ANIMATION_DURATION: 300,  // 보스 나타나기 애니메이션
+  DISAPPEAR_ANIMATION_DURATION: 200,  // 보스 사라지기 애니메이션
+
+  // 스프라이트시트 설정
+  FRAME_WIDTH: 100,               // 프레임 너비 (px)
+  FRAME_HEIGHT: 100,              // 프레임 높이 (px)
+  TOTAL_FRAMES: 5,                // 총 프레임 개수
+
+  // 애니메이션 프레임
+  WALK_FRAMES: [1, 2],            // 걷는 모션 (프레임 1-2)
+  ATTACK_FRAME: 3,                // 공격 모션 (프레임 3)
+  HIT_FRAME: 4,                   // 타격 모션 (프레임 4)
+
+  // 애니메이션 설정
+  WALK_ANIMATION_SPEED: 8,        // 걷기 애니메이션 속도 (fps)
+  ATTACK_ANIMATION_DURATION: 500, // 공격 애니메이션 지속시간 (ms)
+  HIT_ANIMATION_DURATION: 500,    // 타격 애니메이션 지속시간 (ms)
+
+  // 보스 AI
+  ATTACK_INTERVAL: 3000,          // 공격 간격 (ms)
+  MOVEMENT_SPEED: 200,            // 보스 이동 속도 (px/s)
+  MOVE_CHANGE_INTERVAL: 2000,     // 이동 방향 변경 간격 (ms)
+  MIN_MOVE_DISTANCE: 50,          // 최소 이동 거리 (px)
+
+  // 클릭 회수 표시
+  HITS_TEXT_OFFSET_Y: 40,         // 보스 아래 텍스트 오프셋
+  HITS_TEXT_FONT_SIZE: '24px',
+  HITS_TEXT_COLOR: '#ff0000',
+};
+
 export const FEVER_CONFIG = {
   DURATION: 10000,              // 피버타임 지속 시간 (ms)
   REMAINING_GEM_THRESHOLD: 50,   // 피버타임 발동 조건 (남은 gem 개수 - 50개 이하일 때 발동)
