@@ -968,7 +968,7 @@ export class AnipangScene extends Phaser.Scene {
     }
 
     // 보스 클릭 회수 동적 계산
-    this.bossHitsRemaining = Math.floor(this.score / 10000);
+    this.bossHitsRemaining = Math.floor(this.score / 5000);
     this.bossDamage = Math.floor(this.score / 20000);
     
     console.log(`[보스] 점수: ${this.score}, 클릭 필요: ${this.bossHitsRemaining}회, 공격 데미지: ${this.bossDamage}초`);
