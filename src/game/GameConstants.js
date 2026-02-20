@@ -128,7 +128,7 @@ export const DRAG_CONFIG = {
 };
 export const FEVER_CONFIG = {
   DURATION: 10000,              // 피버타임 지속 시간 (ms)
-  REMAINING_GEM_THRESHOLD: 32,   // 피버타임 발동 조건 (남은 gem 개수 - 32개 이하일 때 발동)       // 피버타임 발동 조건 (전체의 50% 이상 비워짐)
+  REMAINING_GEM_THRESHOLD: 50,   // 피버타임 발동 조건 (남은 gem 개수 - 54개 이하일 때 발동)       // 피버타임 발동 조건 (전체의 50% 이상 비워짐)
   SPARKLE_DURATION: 300,        // 반짝임 애니메이션 주기 (ms)
   TEXT_DISPLAY_TIME: 1000,      // Fever Time 텍스트 표시 시간 (ms)
   TEXT_FONT_SIZE: '100px',      // Fever Time 텍스트 크기
