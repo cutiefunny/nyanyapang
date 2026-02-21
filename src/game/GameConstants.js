@@ -2,10 +2,19 @@
  * GameConstants - 게임 내 모든 하드코딩된 상수 통합 관리
  */
 
+const GEM_TYPE_POOL = ['gem1', 'gem2', 'gem3', 'gem4', 'gem5', 'gem6'];
+const GEM_TYPE_COUNT_RANGE = { min: 3, max: GEM_TYPE_POOL.length };
+const GEM_TYPE_COUNT_SETTING = 6; // 조정하려면 3~6 사이로 변경
+const clampedGemTypeCount = Math.min(Math.max(GEM_TYPE_COUNT_SETTING, GEM_TYPE_COUNT_RANGE.min), GEM_TYPE_COUNT_RANGE.max);
+const ACTIVE_GEM_TYPES = GEM_TYPE_POOL.slice(0, clampedGemTypeCount);
+
 export const GAME_CONFIG = {
   // 게임 기본 설정
   BOARD_SIZE: { rows: 8, cols: 8 },
-  GEM_TYPES: ['gem1', 'gem2', 'gem3', 'gem4', 'gem5', 'gem6'],
+  GEM_TYPES_SOURCE: GEM_TYPE_POOL,
+  GEM_TYPES: ACTIVE_GEM_TYPES,
+  GEM_TYPE_COUNT: clampedGemTypeCount,
+  GEM_TYPE_COUNT_RANGE: GEM_TYPE_COUNT_RANGE,
   INITIAL_TIME: 60,
   
   // Gem 크기

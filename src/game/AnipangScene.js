@@ -1001,7 +1001,7 @@ export class AnipangScene extends Phaser.Scene {
     const bossText = this.add.text(
       this.scale.width / 2,
       this.scale.height / 2,
-      'BOSS ATTACK!',
+      'BOSS\nATTACK!',
       {
         fontSize: '80px',
         fontFamily: 'Arial Black',
@@ -1043,7 +1043,9 @@ export class AnipangScene extends Phaser.Scene {
 
     // 보스 클릭 회수 동적 계산
     this.bossHitsRemaining = Math.floor(this.score / 5000);
-    this.bossDamage = Math.floor(this.score / 20000);
+    let bossDamageBase = 20000;
+    if (this.score >= 800000) bossDamageBase = 30000;
+    this.bossDamage = Math.floor(this.score / bossDamageBase);
     
     console.log(`[보스] 점수: ${this.score}, 클릭 필요: ${this.bossHitsRemaining}회, 공격 데미지: ${this.bossDamage}초`);
 
