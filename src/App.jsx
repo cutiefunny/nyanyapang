@@ -6,6 +6,7 @@ import './App.css'; // 기본 CSS는 비웁니다.
 function App() {
   const [score, setScore] = createSignal(0);
   const [timeLeft, setTimeLeft] = createSignal(60);
+  const [timeDamagedFlash, setTimeDamagedFlash] = createSignal(false);
   const [gameOver, setGameOver] = createSignal(false);
   const [isMobile, setIsMobile] = createSignal(false);
   const [timeBonusActive, setTimeBonusActive] = createSignal(false);
@@ -36,6 +37,12 @@ function App() {
     setTimeout(() => setTimeBonusActive(false), 200);
   };
 
+  const handleTimeDamaged = (damage) => {
+    // flash the time display red briefly
+    setTimeDamagedFlash(true);
+    setTimeout(() => setTimeDamagedFlash(false), 300);
+  };
+
   return (
     <div style={{ "text-align": "center", "font-family": "Arial, sans-serif", "width": "100%", "height": "100%", "display": "flex", "flex-direction": "column", "overflow": "hidden" }}>
       <img src={titleImg} alt="냐냐팡" style={{ 
@@ -50,7 +57,7 @@ function App() {
           {score()}
         </div>
 
-        <div style={{ "margin-bottom": "5px", "font-size": timeBonusActive() ? "38px" : "28px", "font-weight": "bold", "color": timeBonusActive() ? "#41c73c" : "#ffffff", "transition": "font-size 0.2s ease-in-out, color 0.2s ease-in-out" }}>
+        <div style={{ "margin-bottom": "5px", "font-size": timeBonusActive() ? "38px" : "28px", "font-weight": "bold", "color": timeDamagedFlash() ? "#ff4d4d" : (timeBonusActive() ? "#41c73c" : "#ffffff"), "transition": "font-size 0.2s ease-in-out, color 0.15s ease-in-out" }}>
           {timeLeft()}
         </div>
       </div>
@@ -60,7 +67,7 @@ function App() {
         "width": "100%",
         "flex": "1"
       }}>
-        <GameCanvas onScoreUpdate={handleScoreUpdate} onTick={handleTick} onGameOver={handleGameOver} onTimeBonus={handleTimeBonus} />
+        <GameCanvas onScoreUpdate={handleScoreUpdate} onTick={handleTick} onGameOver={handleGameOver} onTimeBonus={handleTimeBonus} onTimeDamaged={handleTimeDamaged} />
 
         {gameOver() && (
           <div style={{

@@ -156,8 +156,8 @@ export const BOSS_CONFIG = {
   // 보스 AI
   ATTACK_INTERVAL: 3000,          // 공격 간격 (ms)
   MOVEMENT_SPEED: 300,            // 보스 이동 속도 (px/s)
-  MOVE_CHANGE_INTERVAL: 3000,     // 이동 방향 변경 간격 (ms)
-  MIN_MOVE_DISTANCE: 100,          // 최소 이동 거리 (px)
+  MOVE_CHANGE_INTERVAL: 500,     // 이동 방향 변경 간격 (ms)
+  MIN_MOVE_DISTANCE: 400,          // 최소 이동 거리 (px)
 
   // 클릭 회수 표시
   HITS_TEXT_OFFSET_Y: 40,         // 보스 아래 텍스트 오프셋

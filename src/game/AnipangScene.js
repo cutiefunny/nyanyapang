@@ -109,6 +109,61 @@ export class AnipangScene extends Phaser.Scene {
     this.bossTargetY = 0;
     this.bossMoveVelocityX = 0;
     this.bossMoveVelocityY = 0;
+    // Dev mode UI helpers
+    this.devMode = false;
+    this.devUIElements = [];
+  }
+
+  /**
+   * Toggle dev UI buttons (Fever / Boss)
+   */
+  toggleDevUI() {
+    // if already visible, destroy
+    if (this.devUIElements && this.devUIElements.length > 0) {
+      this.devUIElements.forEach(e => { try { if (e && e.destroy) e.destroy(); } catch (err) {} });
+      this.devUIElements = [];
+      return;
+    }
+
+    const width = this.scale.width;
+    const padding = 12;
+    const btnW = 140;
+    const btnH = 36;
+    const centerY = 24;
+
+    const leftX = width / 2 - btnW - padding;
+    const rightX = width / 2 + padding;
+
+    const feverBtn = this.add.rectangle(leftX + btnW / 2, centerY, btnW, btnH, 0x333333, 0.9)
+      .setOrigin(0.5)
+      .setDepth(2000);
+    const feverText = this.add.text(leftX + btnW / 2, centerY, 'FEVER', { fontSize: '16px', fill: '#ffdd55', fontFamily: 'Arial' })
+      .setOrigin(0.5)
+      .setDepth(2001);
+    const feverZone = this.add.zone(leftX + btnW / 2, centerY, btnW, btnH).setOrigin(0.5).setInteractive().setDepth(2002);
+    feverZone.on('pointerdown', () => {
+      try {
+        this.activateFeverTime();
+      } catch (e) {}
+      this.toggleDevUI();
+    });
+
+    const bossBtn = this.add.rectangle(rightX + btnW / 2, centerY, btnW, btnH, 0x333333, 0.9)
+      .setOrigin(0.5)
+      .setDepth(2000);
+    const bossText = this.add.text(rightX + btnW / 2, centerY, 'BOSS', { fontSize: '16px', fill: '#ff7788', fontFamily: 'Arial' })
+      .setOrigin(0.5)
+      .setDepth(2001);
+    const bossZone = this.add.zone(rightX + btnW / 2, centerY, btnW, btnH).setOrigin(0.5).setInteractive().setDepth(2002);
+    bossZone.on('pointerdown', () => {
+      try {
+        this.startBossMode();
+      } catch (e) {}
+      this.toggleDevUI();
+    });
+
+    // store elements for cleanup
+    this.devUIElements = [feverBtn, feverText, feverZone, bossBtn, bossText, bossZone];
   }
 
   // Assets are preloaded by PreloaderScene. Keep preload empty to avoid duplicate loads.
@@ -176,6 +231,21 @@ export class AnipangScene extends Phaser.Scene {
     this.input.on('gameobjectdown', this.onGemDown, this);
     this.input.on('pointermove', this.onPointerMove, this);
     this.input.on('pointerup', this.onPointerUp, this);
+
+    // Dev mode: show quick action buttons when Shift+D pressed
+    try {
+      this.input.keyboard.on('keydown', (event) => {
+        try {
+          if ((event.key === 'D' || event.code === 'KeyD') && event.shiftKey) {
+            this.toggleDevUI();
+          }
+        } catch (e) {
+          // ignore
+        }
+      });
+    } catch (e) {
+      // some environments may not support keyboard input here
+    }
   }
 
   update() {
@@ -223,24 +293,47 @@ export class AnipangScene extends Phaser.Scene {
     this.boss.x += this.bossMoveVelocityX * (deltaTime / 1000);
     this.boss.y += this.bossMoveVelocityY * (deltaTime / 1000);
 
-    // 화면 경계 체크
+    // 화면 경계 체크. direction change only every interval; otherwise clamp position.
     const padding = 150;
-    if (this.boss.x < padding || this.boss.x > this.scale.width - padding ||
-        this.boss.y < padding || this.boss.y > this.scale.height - padding * 2) {
-      this.setNewBossMoveTarget();
+    const widthLimit = this.scale.width - padding;
+    const heightLimit = this.scale.height - padding * 2;
+    const canChangeDirection = this.bossMovementTimer >= BOSS_CONFIG.MOVE_CHANGE_INTERVAL;
+    let directionChangedThisFrame = false;
+    const tryChangeDirection = () => {
+      if (canChangeDirection && !directionChangedThisFrame) {
+        this.setNewBossMoveTarget();
+        directionChangedThisFrame = true;
+      }
+    };
+
+    if (this.boss.x < padding) {
+      this.boss.x = padding;
+      tryChangeDirection();
+    } else if (this.boss.x > widthLimit) {
+      this.boss.x = widthLimit;
+      tryChangeDirection();
+    }
+    if (this.boss.y < padding) {
+      this.boss.y = padding;
+      tryChangeDirection();
+    } else if (this.boss.y > heightLimit) {
+      this.boss.y = heightLimit;
+      tryChangeDirection();
     }
 
     // 목표 도달 확인
     const distToTarget = Phaser.Math.Distance.Between(this.boss.x, this.boss.y, this.bossTargetX, this.bossTargetY);
     if (distToTarget < BOSS_CONFIG.MIN_MOVE_DISTANCE) {
-      this.setNewBossMoveTarget();
+      tryChangeDirection();
     }
 
     // 이동 방향 변경 타이머
     this.bossMovementTimer += deltaTime;
     if (this.bossMovementTimer >= BOSS_CONFIG.MOVE_CHANGE_INTERVAL) {
       this.bossMovementTimer = 0;
-      this.setNewBossMoveTarget();
+      if (!directionChangedThisFrame) {
+        this.setNewBossMoveTarget();
+      }
     }
 
     // 공격 타이머
@@ -1023,6 +1116,8 @@ export class AnipangScene extends Phaser.Scene {
   setNewBossMoveTarget() {
     if (!this.boss) return;
 
+    this.bossMovementTimer = 0;
+
     const padding = 150;
     const targetX = Phaser.Math.Between(padding, this.scale.width - padding);
     const targetY = Phaser.Math.Between(padding, this.scale.height - padding * 2);
@@ -1115,10 +1210,20 @@ export class AnipangScene extends Phaser.Scene {
       }
     });
 
+    // 화면 빨간색 깜빡임 및 약한 쉐이크로 공격을 강조
+    try {
+      this.cameras.main.flash(150, 255, 0, 0);
+      this.cameras.main.shake(200, 0.02);
+    } catch (e) {
+      // 환경에 따라 cameras가 없을 수 있으므로 무시
+    }
+
     // 플레이어 시간 감소 (동적 계산된 데미지 사용)
     this.timeLeft = Math.max(0, this.timeLeft - this.bossDamage);
     if (this.game && this.game.events) {
       this.game.events.emit('tick', this.timeLeft);
+      // emit an event to signal time was damaged so UI can flash
+      this.game.events.emit('timeDamaged', this.bossDamage);
     }
 
     // 공격 파티클
@@ -1393,6 +1498,12 @@ export class AnipangScene extends Phaser.Scene {
     if (this.particleManager) {
       this.particleManager.destroy();
       this.particleManager = null;
+    }
+
+    // dev UI cleanup
+    if (this.devUIElements && this.devUIElements.length > 0) {
+      this.devUIElements.forEach(e => { try { if (e && e.destroy) e.destroy(); } catch (err) {} });
+      this.devUIElements = [];
     }
   }
 }

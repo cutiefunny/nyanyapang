@@ -79,6 +79,9 @@ export default function GameCanvas(props) {
         gameInstance.events.on('tick', (secondsLeft) => {
           if (props.onTick) props.onTick(secondsLeft);
         });
+        gameInstance.events.on('timeDamaged', (damage) => {
+          if (props.onTimeDamaged) props.onTimeDamaged(damage);
+        });
         gameInstance.events.on('gameOver', () => {
           if (props.onGameOver) props.onGameOver();
         });
