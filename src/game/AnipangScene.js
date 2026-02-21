@@ -111,27 +111,8 @@ export class AnipangScene extends Phaser.Scene {
     this.bossMoveVelocityY = 0;
   }
 
-  preload() {
-    this.load.image('gem1', img1);
-    this.load.image('gem2', img2);
-    this.load.image('gem3', img3);
-    this.load.image('gem4', img4);
-    this.load.image('gem5', img5);
-    this.load.image('gem6', img6);
-    this.load.image('bomb', bombImg);
-    this.load.image('background', backgroundImg);
-    this.load.image('boss', bossImg);
-    this.load.spritesheet('dog', dogWalkImg, { frameWidth: 100, frameHeight: 100 });
-    this.load.spritesheet('wawa', wawaImg, { frameWidth: BOSS_CONFIG.FRAME_WIDTH, frameHeight: BOSS_CONFIG.FRAME_HEIGHT });
-    this.load.audio('ouch1', soundOuch1);
-    this.load.audio('ouch2', soundOuch2);
-    this.load.audio('bgm', bgm);
-    this.load.audio('bgm_boss', bgmBoss);
-    this.load.audio('bomb', bombSound);
-    this.load.audio('hit1', hitSound1);
-    this.load.audio('hit2', hitSound2);
-    this.load.audio('hit3', hitSound3);
-  }
+  // Assets are preloaded by PreloaderScene. Keep preload empty to avoid duplicate loads.
+  preload() {}
 
   create() {
     // 배경 이미지 설정

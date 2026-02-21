@@ -1,6 +1,7 @@
 import { onMount, onCleanup } from 'solid-js';
 import Phaser from 'phaser';
 import { AnipangScene } from '../game/AnipangScene';
+import { PreloaderScene } from '../game/PreloaderScene';
 
 export default function GameCanvas(props) {
   let gameContainer;
@@ -49,7 +50,7 @@ export default function GameCanvas(props) {
         physics: {
           default: 'arcade',
         },
-        scene: [AnipangScene],
+        scene: [PreloaderScene, AnipangScene],
         callbacks: {
           postBoot: (game) => {
             const rendererType = game.renderer.type === Phaser.CANVAS ? 'CANVAS' : 'WEBGL';
