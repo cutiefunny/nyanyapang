@@ -259,6 +259,12 @@ export class BoardManager {
       // 모든 gem의 최종 위치 재정렬 (부동소수점 오류 보정)
       this.finalizePositions();
 
+      // 보드에 gems이 하나도 없으면 채우기 (쿨다운 버그 방지)
+      if (this.isBoardEmpty()) {
+        console.warn('[보드] 화면에 gems이 하나도 없습니다! 다시 채우는 중...');
+        this.fillAllBoard();
+      }
+
       if (this.scene && this.scene.checkBoardEmptySpaces) {
         this.scene.checkBoardEmptySpaces();
       }
@@ -308,7 +314,7 @@ export class BoardManager {
     
     for (let row = 0; row < this.boardSize.rows; row++) {
       for (let col = 0; col < this.boardSize.cols; col++) {
-        if (this.gems[row][col] === null) {
+        if (this.gems[row][col] === null || !this.gems[row][col].active) {
           emptySlots.push({ row, col });
         }
       }
@@ -326,15 +332,40 @@ export class BoardManager {
       const type = Phaser.Math.RND.pick(this.gemTypes);
       const startY = this.getGemY(row) - this.gemSize * 2;
       const gem = this.spawnGem(row, col, type);
-      gem.y = startY;
+      
+      if (gem) {
+        gem.y = startY;
 
-      this.scene.tweens.add({
-        targets: gem,
-        y: this.getGemY(row),
-        duration: 400,
-        ease: 'Bounce.easeOut'
-      });
+        this.scene.tweens.add({
+          targets: gem,
+          y: this.getGemY(row),
+          duration: 400,
+          ease: 'Bounce.easeOut'
+        });
+      }
     });
+
+    // 모든 칸에 gems이 채워졌는지 최종 확인
+    let stillEmpty = false;
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        if (this.gems[row][col] === null || !this.gems[row][col].active) {
+          stillEmpty = true;
+          break;
+        }
+      }
+      if (stillEmpty) break;
+    }
+
+    // 여전히 빈 칸이 있으면 다시 채우기 (무한 루프 방지)
+    if (stillEmpty) {
+      console.warn('[보드] 여전히 빈 칸이 있습니다. 재시도 중...');
+      this.scene.time.delayedCall(500, () => {
+        if (this.scene && !this.scene.isProcessing) {
+          this.enforceNoEmptySlots();
+        }
+      });
+    }
 
     return true;
   }
@@ -416,6 +447,48 @@ export class BoardManager {
    */
   getGemY(row) {
     return row * this.gemSize + this.scene.offsetY;
+  }
+
+  /**
+   * 보드가 비어있는지 확인 (gems이 하나도 없음)
+   */
+  isBoardEmpty() {
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        const gem = this.gems[row][col];
+        if (gem && gem.active) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * 전체 보드를 gems으로 채우기 (쿨다운 버그 방지)
+   */
+  fillAllBoard() {
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        if (this.gems[row][col] === null || !this.gems[row][col].active) {
+          const type = Phaser.Math.RND.pick(this.gemTypes);
+          const gem = this.spawnGem(row, col, type);
+          
+          if (gem) {
+            const startY = this.getGemY(row) - this.gemSize * 2;
+            gem.y = startY;
+
+            this.scene.tweens.add({
+              targets: gem,
+              y: this.getGemY(row),
+              duration: 300,
+              ease: 'Bounce.easeOut'
+            });
+          }
+        }
+      }
+    }
+    console.log('[보드] 전체 보드를 다시 채웠습니다!');
   }
 
   /**

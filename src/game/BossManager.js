@@ -131,10 +131,11 @@ export class BossManager {
     // 보스 스프라이트 생성
     this.boss = this.scene.add.sprite(randomX, randomY, 'wawa');
     
-    // 디바이스별 크기 설정 (태블릿인 경우 2배)
+    // 디바이스별 크기 설정 (PC와 태블릿인 경우 2배)
     const isTablet = this.scene.scale.width > 600 && this.scene.scale.width <= 1024;
-    this.bossScale = isTablet ? BOSS_CONFIG.BOSS_SCALE * 2 : BOSS_CONFIG.BOSS_SCALE;
-    console.log(`[보스] 화면 너비: ${this.scene.scale.width}px, isTablet: ${isTablet}, bossScale: ${this.bossScale}`);
+    const isPC = this.scene.scale.width > 1024;
+    this.bossScale = (isPC || isTablet) ? BOSS_CONFIG.BOSS_SCALE * 2 : BOSS_CONFIG.BOSS_SCALE;
+    console.log(`[보스] 화면 너비: ${this.scene.scale.width}px, isPC: ${isPC}, isTablet: ${isTablet}, bossScale: ${this.bossScale}`);
     this.boss.setScale(this.bossScale);
     
     this.boss.setDepth(1001);

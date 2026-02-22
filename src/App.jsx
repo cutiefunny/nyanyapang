@@ -15,6 +15,9 @@ function App() {
   const [saveMessage, setSaveMessage] = createSignal('');
   const [showRanking, setShowRanking] = createSignal(false);
   const [topScores, setTopScores] = createSignal([]);
+
+  // /list 경로 감지
+  const isListPage = () => window.location.pathname === '/list';
   
   // 간단한 해시 함수
   const simpleHash = (str) => {
@@ -88,6 +91,33 @@ function App() {
       setPlayerName(value);
     }
   };
+
+  // 상위 점수 조회 함수
+  const fetchTopScores = async () => {
+    try {
+      const rankingResponse = await fetch('https://musclecat.co.kr/nyanyapang/getRecentScores?limit=10', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const rankingData = await rankingResponse.json();
+      if (rankingData.result === 'success' && rankingData.data) {
+        setTopScores(rankingData.data);
+        setShowRanking(true);
+      }
+    } catch (err) {
+      console.error('Error fetching ranking:', err);
+    }
+  };
+
+  // /list 페이지 마운트 시 순위 자동 조회
+  createEffect(() => {
+    if (isListPage()) {
+      fetchTopScores();
+    }
+  });
 
   // 윈도우 크기 감지
   createEffect(() => {
@@ -175,24 +205,8 @@ function App() {
         
         // 1초 후 랭킹 조회
         setTimeout(async () => {
-          try {
-            const rankingResponse = await fetch('https://musclecat.co.kr/nyanyapang/getRecentScores?limit=10', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            const rankingData = await rankingResponse.json();
-            if (rankingData.result === 'success' && rankingData.data) {
-              setTopScores(rankingData.data);
-              setShowRanking(true);
-              setGameOver(false);
-            }
-          } catch (err) {
-            console.error('Error fetching ranking:', err);
-            window.location.reload();
-          }
+          setGameOver(false);
+          fetchTopScores();
         }, 1000);
       } else {
         setSaveMessage('✗ 저장 실패: ' + (data.message || '알 수 없는 오류'));
@@ -205,6 +219,85 @@ function App() {
     }
   };
 
+  // /list 페이지 렌더링
+  if (isListPage()) {
+    return (
+      <div style={{ "text-align": "center", "font-family": "Arial, sans-serif", "width": "100vw", "height": "100vh", "display": "flex", "flex-direction": "column", "justify-content": "center", "align-items": "center", "background": "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)", "overflow": "hidden" }}>
+        {showRanking() && (
+          <div style={{
+            background: 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)',
+            border: '4px solid #ffdb78',
+            'border-radius': '20px',
+            padding: '32px',
+            'text-align': 'center',
+            'box-shadow': '0 10px 40px rgba(0, 0, 0, 0.5)',
+            'max-width': '500px',
+            'max-height': '650px',
+            'display': 'flex',
+            'flex-direction': 'column',
+            'width': '90%'
+          }}>
+            <h2 style={{ margin: '0 0 20px 0', color: '#ffdb78', 'font-size': '32px' }}>🏆 TOP 10 순위</h2>
+            
+            <div style={{
+              display: 'grid',
+              'grid-template-columns': '1fr',
+              gap: '0px',
+              'margin-bottom': '0',
+              'flex': '1',
+              'overflow-y': 'auto',
+              'border': '1px solid rgba(255, 255, 255, 0.1)',
+              'border-radius': '8px',
+              'background': '#0a0a0a'
+            }}>
+              {topScores().map((entry, index) => (
+                <div style={{
+                  display: 'flex',
+                  'justify-content': 'space-between',
+                  'align-items': 'center',
+                  padding: '6px 14px',
+                  background: index === 0 ? 'rgba(255, 215, 0, 0.15)' : index % 2 === 0 ? 'rgba(255, 255, 255, 0.02)' : 'transparent',
+                  'border-bottom': index < topScores().length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+                  color: '#fff',
+                  'transition': 'background 0.2s ease'
+                }}>
+                  <div style={{ 'text-align': 'left', flex: 1, 'display': 'flex', 'align-items': 'center' }}>
+                    <div style={{ 
+                      'font-size': '18px', 
+                      'min-width': '30px',
+                      'text-align': 'center'
+                    }}>
+                      {(() => {
+                        const medals = ['🥇', '🥈', '🥉'];
+                        return medals[index] || `#${index + 1}`;
+                      })()}
+                    </div>
+                    <div style={{ 
+                      'font-size': '14px', 
+                      'margin-left': '12px',
+                      color: index === 0 ? '#ffd700' : '#ffffff'
+                    }}>
+                      {entry.name}
+                    </div>
+                  </div>
+                  <div style={{ 'font-size': '16px', 'font-weight': 'bold', color: '#41c73c' }}>
+                    {entry.score}
+                  </div>
+                </div>
+              ))}
+              {topScores().length === 0 && (
+                <div style={{ color: '#ff6b6b', padding: '20px' }}>
+                  데이터를 불러오는 중입니다...
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 기존 게임 페이지
   return (
     <div style={{ "text-align": "center", "font-family": "Arial, sans-serif", "width": "100%", "height": "100%", "display": "flex", "flex-direction": "column", "overflow": "hidden" }}>
       <img src={titleImg} alt="냐냐팡" style={{ 
