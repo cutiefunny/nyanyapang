@@ -61,8 +61,8 @@ function App() {
 
   const [deviceId] = createSignal(getOrCreateDeviceId());
 
-  // localStorage에서 저장된 이름 로드
-  const [playerName, setPlayerName] = createSignal(localStorage.getItem('playerName') || '');
+  // localStorage에서 저장된 이름 로드 (없으면 랜덤 이름 생성)
+  const [playerName, setPlayerName] = createSignal(localStorage.getItem('playerName') || generateRandomName());
 
   // 이름 검증 함수 (한글 6글자, 영문 10글자)
   const validatePlayerName = (name) => {
