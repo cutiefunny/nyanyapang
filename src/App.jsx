@@ -418,7 +418,7 @@ function App() {
               'display': 'flex',
               'flex-direction': 'column'
             }}>
-              <h2 style={{ margin: '0 0 20px 0', color: '#ffdb78', 'font-size': '32px' }}>🏆 TOP 10 순위</h2>
+              <h2 style={{ margin: '0 0 20px 0', color: '#ffdb78', 'font-size': '32px' }}>Leader Board</h2>
               
               <div style={{
                 display: 'grid',
