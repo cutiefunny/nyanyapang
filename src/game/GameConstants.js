@@ -168,10 +168,12 @@ export const BOSS_CONFIG = {
   MOVE_CHANGE_INTERVAL: 500,     // 이동 방향 변경 간격 (ms)
   MIN_MOVE_DISTANCE: 400,          // 최소 이동 거리 (px)
 
-  // 클릭 회수 표시
-  HITS_TEXT_OFFSET_Y: 40,         // 보스 아래 텍스트 오프셋
-  HITS_TEXT_FONT_SIZE: '24px',
-  HITS_TEXT_COLOR: '#ff0000',
+  // 상단 중앙 클릭 회수 표시
+  TOP_CENTER_HITS_FONT_SIZE: '60px',
+  TOP_CENTER_HITS_COLOR: '#ffff00',
+  TOP_CENTER_HITS_STROKE: '#ff0000',
+  TOP_CENTER_HITS_STROKE_WIDTH: 3,
+  TOP_CENTER_HITS_Y_OFFSET: 15,  // 화면 상단에서의 Y 위치
 };
 
 export const FEVER_CONFIG = {

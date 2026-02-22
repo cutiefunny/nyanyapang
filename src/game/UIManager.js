@@ -109,36 +109,12 @@ export class UIManager {
    * 시간 보너스 이펙트
    */
   grantTimeBonus() {
-    this.scene.timeLeft += 10;
+    this.scene.gameTimer.addTime(10);
 
+    // timeBonus 이벤트 발생 (App.jsx에서 타이머 오른쪽에 +10 표시)
     if (this.scene.game && this.scene.game.events) {
-      this.scene.game.events.emit('tick', this.scene.timeLeft);
       this.scene.game.events.emit('timeBonus');
     }
-
-    this.scene.cameras.main.flash(400, 255, 215, 0);
-    this.scene.cameras.main.shake(300, 0.05);
-
-    const centerX = this.scene.scale.width / 2;
-    const centerY = this.scene.scale.height / 2;
-    const bonusText = this.scene.add.text(centerX, centerY, '+10초', {
-      fontFamily: 'Arial Black',
-      fontSize: '100px',
-      color: '#ffff00',
-      stroke: '#ff0000',
-      strokeThickness: 10,
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(1000).setScale(0.5);
-
-    this.scene.tweens.add({
-      targets: bonusText,
-      scale: 1.3,
-      alpha: 0,
-      y: centerY - 150,
-      duration: 1200,
-      ease: 'Elastic.easeOut',
-      onComplete: () => bonusText.destroy()
-    });
   }
 
   /**

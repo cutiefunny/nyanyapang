@@ -10,6 +10,7 @@ function App() {
   const [gameOver, setGameOver] = createSignal(false);
   const [isMobile, setIsMobile] = createSignal(false);
   const [timeBonusActive, setTimeBonusActive] = createSignal(false);
+  const [showTimeBonusText, setShowTimeBonusText] = createSignal(false);
 
   // 윈도우 크기 감지
   createEffect(() => {
@@ -35,6 +36,10 @@ function App() {
   const handleTimeBonus = () => {
     setTimeBonusActive(true);
     setTimeout(() => setTimeBonusActive(false), 200);
+    
+    // "+10" 텍스트 1초 동안 표시
+    setShowTimeBonusText(true);
+    setTimeout(() => setShowTimeBonusText(false), 1000);
   };
 
   const handleTimeDamaged = (damage) => {
@@ -57,8 +62,24 @@ function App() {
           {score()}
         </div>
 
-        <div style={{ "margin-bottom": "5px", "font-size": timeBonusActive() ? "38px" : "28px", "font-weight": "bold", "color": timeDamagedFlash() ? "#ff4d4d" : (timeBonusActive() ? "#41c73c" : "#ffffff"), "transition": "font-size 0.2s ease-in-out, color 0.15s ease-in-out" }}>
-          {timeLeft()}
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <div style={{ "margin-bottom": "5px", "font-size": timeBonusActive() ? "28px" : "28px", "font-weight": "bold", "color": timeDamagedFlash() ? "#ff4d4d" : (timeBonusActive() ? "#41c73c" : "#ffffff"), "transition": "font-size 0.2s ease-in-out, color 0.15s ease-in-out" }}>
+            {timeLeft()}
+          </div>
+          
+          {showTimeBonusText() && (
+            <div style={{
+              position: 'absolute',
+              right: '-50px',
+              top: '0',
+              "font-size": "20px",
+              "font-weight": "bold",
+              color: '#41c73c',
+              animation: 'fadeOutBonus 1s ease-in-out forwards'
+            }}>
+              +10
+            </div>
+          )}
         </div>
       </div>
 
@@ -134,6 +155,17 @@ function App() {
             to {
               opacity: 1;
               transform: scale(1);
+            }
+          }
+          
+          @keyframes fadeOutBonus {
+            0% {
+              opacity: 1;
+              transform: translateX(0);
+            }
+            100% {
+              opacity: 0;
+              transform: translateX(30px);
             }
           }
         `}
