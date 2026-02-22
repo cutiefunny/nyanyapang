@@ -57,7 +57,7 @@ function App() {
         "margin": "10px auto 0px auto"
       }} />
 
-      <div style={{ display: 'flex', 'justify-content': 'center', gap: '100px', 'align-items': 'center' }}>
+      <div style={{ display: 'flex', 'justify-content': 'center', gap: '80px', 'align-items': 'center' }}>
         <div style={{ "margin-bottom": "5px", "font-size": "28px", "font-weight": "bold", "color": "#ffdb78" }}>
           {score()}
         </div>
@@ -81,6 +81,37 @@ function App() {
             </div>
           )}
         </div>
+
+        <button
+          onClick={() => {
+            setScore(0);
+            setTimeLeft(60);
+            setGameOver(false);
+            setTimeDamagedFlash(false);
+            window.location.reload();
+          }}
+          style={{
+            padding: '3px 8px',
+            "font-size": "12px",
+            "font-weight": "bold",
+            "border-radius": "8px",
+            border: "2px solid #ffdb78",
+            background: "#333333",
+            color: "#ffdb78",
+            cursor: 'pointer',
+            transition: 'all 0.2s ease-in-out'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = "#ffdb78";
+            e.target.style.color = "#000";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = "#333333";
+            e.target.style.color = "#ffdb78";
+          }}
+        >
+          재시작
+        </button>
       </div>
 
       <div style={{ 

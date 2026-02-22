@@ -414,6 +414,9 @@ export class AnipangScene extends Phaser.Scene {
   /**
    * 씬 종료 시 정리
    */
+  /**
+   * 정리
+   */
   shutdown() {
     try {
       // 모든 타이머 정리

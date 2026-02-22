@@ -12,6 +12,7 @@ export class BossManager {
     this.bossEnergyBar = null;
     this.bossEnergyBarBg = null;
     this.bossHitsTextTopCenter = null; // 상단 중앙 클릭 회수 표시
+    this.bossScale = 1; // 디바이스별 보스 크기
 
     // 보스 상태
     this.bossMode = false;
@@ -129,7 +130,13 @@ export class BossManager {
 
     // 보스 스프라이트 생성
     this.boss = this.scene.add.sprite(randomX, randomY, 'wawa');
-    this.boss.setScale(BOSS_CONFIG.BOSS_SCALE);
+    
+    // 디바이스별 크기 설정 (태블릿인 경우 2배)
+    const isTablet = this.scene.scale.width > 600 && this.scene.scale.width <= 1024;
+    this.bossScale = isTablet ? BOSS_CONFIG.BOSS_SCALE * 2 : BOSS_CONFIG.BOSS_SCALE;
+    console.log(`[보스] 화면 너비: ${this.scene.scale.width}px, isTablet: ${isTablet}, bossScale: ${this.bossScale}`);
+    this.boss.setScale(this.bossScale);
+    
     this.boss.setDepth(1001);
     this.boss.setInteractive();
     this.boss.setAlpha(0);
@@ -148,7 +155,7 @@ export class BossManager {
     this.scene.tweens.add({
       targets: this.boss,
       alpha: 1,
-      scale: BOSS_CONFIG.BOSS_SCALE,
+      scale: this.bossScale,
       duration: BOSS_CONFIG.SPAWN_ANIMATION_DURATION,
       ease: 'Back.easeOut'
     });
@@ -235,7 +242,7 @@ export class BossManager {
 
     this.scene.tweens.add({
       targets: this.boss,
-      scale: BOSS_CONFIG.BOSS_SCALE * 0.85,
+      scale: this.bossScale * 0.85,
       duration: BOSS_CONFIG.HIT_ANIMATION_DURATION,
       yoyo: true,
       onComplete: () => {
@@ -272,8 +279,8 @@ export class BossManager {
 
     this.scene.tweens.add({
       targets: this.boss,
-      scaleX: BOSS_CONFIG.BOSS_SCALE * 0.95,
-      scaleY: BOSS_CONFIG.BOSS_SCALE * 1.05,
+      scaleX: this.bossScale * 0.95,
+      scaleY: this.bossScale * 1.05,
       duration: BOSS_CONFIG.ATTACK_ANIMATION_DURATION,
       yoyo: true,
       onComplete: () => {
