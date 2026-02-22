@@ -114,6 +114,17 @@ function App() {
     setTimeout(() => setTimeDamagedFlash(false), 300);
   };
 
+  // 랜덤 이름 생성 함수 (접두사 + 접미사)
+  const generateRandomName = () => {
+    const prefixes = ['귀여운', '근육질', '머슬업', '역도', '헬쓰', '쇠질', '롹앤롤', '용감한', '똑똑한', '빠른', '강한', '착한', '반짝이는', '우아한', '야무진', '영리한', '활발한', '조용한', '친절한', '신비로운', '멋진'];
+    const suffixes = ['턱시도', '고양이', '치즈', '러블', '코숏', '냥이', '길냥이', '발바닥', '츄르', '젤리', '아메숏', '카오스', '삼색이', '못난이', '고등어', '하양이', '까망이','개냥이','무릎냥'];
+    
+    const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+    
+    return randomPrefix + randomSuffix;
+  };
+
   // 날짜 포맷 함수 (YYYY-MM-DD HH:mm:ss)
   const formatDateTime = (date) => {
     const year = date.getFullYear();
@@ -137,8 +148,9 @@ function App() {
 
     try {
       const now = new Date();
+      const finalName = playerName().trim() || generateRandomName();
       const param = {
-        name: playerName().trim(),
+        name: finalName,
         score: score(),
         deviceId: deviceId(),
         createTm: formatDateTime(now),
@@ -155,10 +167,11 @@ function App() {
 
       const data = await response.json();
 
-      if (data.result === 'success') {
+      if (data.result === 'success' || data.result === 'skip') {
         // localStorage에 이름 저장
         localStorage.setItem('playerName', playerName().trim());
-        setSaveMessage('✓ 점수가 저장되었습니다!');
+        if (data.result === 'success') setSaveMessage('✓ 점수가 저장되었습니다!');
+        // skip인 경우 아무 메시지도 표시하지 않음
         
         // 1초 후 랭킹 조회
         setTimeout(async () => {
