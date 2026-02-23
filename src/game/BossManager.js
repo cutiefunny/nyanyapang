@@ -112,14 +112,14 @@ export class BossManager {
     }
 
     // 클릭 회수 동적 계산
-    this.bossHitsRemaining = Math.floor(this.scene.score / 5000);
+    this.bossHitsRemaining = 30 + (this.scene.score / 20000);
     if (this.bossHitsRemaining < 5) this.bossHitsRemaining = 5;
-    if (this.bossHitsRemaining > 100) this.bossHitsRemaining = 100;
+    if (this.bossHitsRemaining > 80) this.bossHitsRemaining = 80;
     this.bossHitsRemaining_current = this.bossHitsRemaining;
 
-    let bossDamageBase = 20000;
-    if (this.scene.score >= 800000) bossDamageBase = 30000;
-    this.bossDamage = Math.floor(this.scene.score / bossDamageBase);
+    
+    this.bossDamage = Math.floor(this.scene.score / 20000);
+    if (this.bossDamage > 40) this.bossDamage = 40;
 
     console.log(`[보스] 점수: ${this.scene.score}, 클릭 필요: ${this.bossHitsRemaining}회, 공격 데미지: ${this.bossDamage}초`);
 
