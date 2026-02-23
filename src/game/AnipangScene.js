@@ -155,6 +155,17 @@ export class AnipangScene extends Phaser.Scene {
     // 입력 처리 초기화
     this.inputHandler.initialize();
 
+    // 보드 정기 체크 타이머 시작 (5초마다 비어있는 부분 채우기 & 중복 gem 제거)
+    this.boardCheckEvent = this.time.addEvent({
+      delay: BOARD_CHECK_CONFIG.CHECK_INTERVAL,
+      callback: () => {
+        if (this.boardManager && !this.isProcessing) {
+          this.boardManager.periodicBoardCheck();
+        }
+      },
+      loop: true
+    });
+
     // Dev mode 초기화
     this.devMode = new DevMode(this);
   }
@@ -412,6 +423,17 @@ export class AnipangScene extends Phaser.Scene {
   }
 
   /**
+   * 보드 비어있는 부분 체크 (fillBoard 완료 후 호출)
+   * BoardManager.fillBoard()에서 호출됨
+   */
+  checkBoardEmptySpaces() {
+    if (!this.boardManager) return;
+    
+    // 비어있는 부분이 있으면 강제로 채우기
+    this.boardManager.enforceNoEmptySlots();
+  }
+
+  /**
    * 씬 종료 시 정리
    */
   /**
@@ -425,6 +447,9 @@ export class AnipangScene extends Phaser.Scene {
       }
       if (this.feverTimeManager && this.feverTimeManager.feverTimeEvent) {
         this.feverTimeManager.feverTimeEvent.remove();
+      }
+      if (this.boardCheckEvent) {
+        this.boardCheckEvent.remove();
       }
 
       // 모든 tweens 정리

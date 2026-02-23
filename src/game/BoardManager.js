@@ -513,4 +513,77 @@ export class BoardManager {
     }
     return candidates;
   }
+
+  /**
+   * 겹친 gem 제거 (같은 위치의 중복 gem 하나만 남기기)
+   */
+  removeDuplicateGems() {
+    const positionMap = this.detectPhysicalOverlaps();
+    let removedCount = 0;
+
+    positionMap.forEach((gemsAtPosition) => {
+      if (gemsAtPosition.length > 1) {
+        // 가장 깊이가 낮은(맨 앞) gem만 유지, 나머지는 제거
+        gemsAtPosition.sort((a, b) => a.gem.depth - b.gem.depth);
+        const keepGem = gemsAtPosition[0];
+
+        // 나머지 gem들 제거
+        for (let i = 1; i < gemsAtPosition.length; i++) {
+          const removeGem = gemsAtPosition[i];
+          this.gems[removeGem.row][removeGem.col] = null;
+          removeGem.gem.destroy();
+          removedCount++;
+        }
+      }
+    });
+
+    if (removedCount > 0) {
+      console.log(`[보드] ${removedCount}개의 중복 gem이 제거되었습니다.`);
+    }
+
+    return removedCount;
+  }
+
+  /**
+   * 5초마다 호출되는 보드 정기 검사
+   * - 비어있는 부분 채우기
+   * - 겹친 gem 제거
+   */
+  periodicBoardCheck() {
+    if (this._filling) {
+      return; // fillBoard 진행 중이면 스킵
+    }
+
+    let hasEmptySlots = false;
+    let emptySlots = [];
+
+    // Step 1: 비어있는 부분 감지
+    for (let row = 0; row < this.boardSize.rows; row++) {
+      for (let col = 0; col < this.boardSize.cols; col++) {
+        if (this.gems[row][col] === null || !this.gems[row][col].active) {
+          hasEmptySlots = true;
+          emptySlots.push({ row, col });
+        }
+      }
+    }
+
+    // Step 2: 겹친 gem 감지 및 제거
+    const duplicateCount = this.removeDuplicateGems();
+
+    // Step 3: 비어있는 부분이 있으면 채우기
+    if (hasEmptySlots || duplicateCount > 0) {
+      console.log(`[보드] 정기 체크: 빈 칸 ${emptySlots.length}개, 제거된 중복 ${duplicateCount}개`);
+      
+      // 비어있는 모든 슬롯에 gem 생성
+      emptySlots.forEach(({ row, col }) => {
+        const type = Phaser.Math.RND.pick(this.gemTypes);
+        this.spawnGem(row, col, type);
+      });
+
+      // 일정 시간 후 최종 위치 정렬
+      this.scene.time.delayedCall(300, () => {
+        this.finalizePositions();
+      });
+    }
+  }
 }
