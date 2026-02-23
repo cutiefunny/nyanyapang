@@ -15,9 +15,9 @@ export class FeverTimeManager {
    * 피버타임 활성화
    */
   activate() {
-    console.log('[피버] 피버타임 발동!');
+
     if (this.feverTimeActive) {
-      console.log('[피버] 이미 발동 중, 중복 방지 처리');
+
       return;
     }
     this.feverTimeActive = true;
@@ -63,7 +63,7 @@ export class FeverTimeManager {
 
     // 피버타임 중 보스 스폰 조건이 만족되었으면 이제 보스전 시작
     if (this.scene.bossManager.pendingBossSpawn) {
-      console.log('[보스] 피버타임 종료 - 보류 중인 보스전 시작');
+
       this.scene.bossManager.pendingBossSpawn = false;
       this.scene.bossManager.startBossMode();
     }
@@ -121,7 +121,7 @@ export class FeverTimeManager {
       }
     }
 
-    console.log(`[피버] gem 비율: ${gemCount}/${totalSlots} (${(gemCount / totalSlots * 100).toFixed(1)}%), 한계: ${FEVER_CONFIG.REMAINING_GEM_THRESHOLD}`);
+
 
     return gemCount <= FEVER_CONFIG.REMAINING_GEM_THRESHOLD;
   }

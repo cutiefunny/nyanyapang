@@ -262,7 +262,7 @@ export class BoardManager {
 
       // 보드에 gems이 하나도 없으면 채우기 (쿨다운 버그 방지)
       if (this.isBoardEmpty()) {
-        console.warn('[보드] 화면에 gems이 하나도 없습니다! 다시 채우는 중...');
+
         this.fillAllBoard();
       }
 
@@ -360,7 +360,7 @@ export class BoardManager {
 
     // 여전히 빈 칸이 있으면 다시 채우기 (무한 루프 방지)
     if (stillEmpty) {
-      console.warn('[보드] 여전히 빈 칸이 있습니다. 재시도 중...');
+
       this.scene.time.delayedCall(500, () => {
         if (this.scene && !this.scene.isProcessing) {
           this.enforceNoEmptySlots();
@@ -489,7 +489,7 @@ export class BoardManager {
         }
       }
     }
-    console.log('[보드] 전체 보드를 다시 채웠습니다!');
+
   }
 
   /**
@@ -539,7 +539,7 @@ export class BoardManager {
     });
 
     if (removedCount > 0) {
-      console.log(`[보드] ${removedCount}개의 중복 gem이 제거되었습니다.`);
+
     }
 
     return removedCount;
@@ -621,7 +621,7 @@ export class BoardManager {
 
     // 채울 빈 칸이 있으면 애니메이션 적용
     if (slotsTofill.length > 0) {
-      console.log(`[보드] 정기 체크: 두 번 연속 감지된 빈 칸 ${slotsTofill.length}개 채우기, 제거된 중복 ${duplicateCount}개`);
+
       
       // fillBoard()처럼 애니메이션 적용
       const animatingGems = [];

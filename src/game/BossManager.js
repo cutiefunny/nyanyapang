@@ -38,7 +38,7 @@ export class BossManager {
    * 보스전 시작
    */
   startBossMode() {
-    console.log('[보스] 보스전 시작!');
+
     this.bossMode = true;
     this.bossActive = true;
     this.bossRound = 1;
@@ -124,7 +124,7 @@ export class BossManager {
     this.bossDamage = Math.floor(this.scene.score / 20000);
     if (this.bossDamage > 60) this.bossDamage = 60;
 
-    console.log(`[보스] 점수: ${this.scene.score}, 클릭 필요: ${this.bossHitsRemaining}회, 공격 데미지: ${this.bossDamage}초`);
+
 
     // 랜덤 위치
     const padding = 100;
@@ -138,7 +138,7 @@ export class BossManager {
     const isTablet = this.scene.scale.width > 600 && this.scene.scale.width <= 1024;
     const isPC = this.scene.scale.width > 1024;
     this.bossScale = (isPC || isTablet) ? BOSS_CONFIG.BOSS_SCALE * 2 : BOSS_CONFIG.BOSS_SCALE;
-    console.log(`[보스] 화면 너비: ${this.scene.scale.width}px, isPC: ${isPC}, isTablet: ${isTablet}, bossScale: ${this.bossScale}`);
+
     this.boss.setScale(this.bossScale);
     
     this.boss.setDepth(1001);
@@ -189,7 +189,7 @@ export class BossManager {
     this.setNewBossMoveTarget();
     this.boss.play('boss_walk');
 
-    console.log(`[보스] 라운드 ${this.bossRound}, 보스 생성 (클릭 필요: ${this.bossHitsRemaining}회)`);
+
   }
 
   /**
@@ -218,7 +218,7 @@ export class BossManager {
   onBossClicked() {
     if (!this.bossActive || !this.boss) return;
 
-    console.log(`[보스] 클릭! 남은 횟수: ${this.bossHitsRemaining - 1}`);
+
     this.bossHitsRemaining--;
 
     // 상단 중앙 텍스트 업데이트
@@ -271,7 +271,7 @@ export class BossManager {
   performBossAttack() {
     if (!this.bossActive || !this.boss) return;
 
-    console.log(`[보스] 공격! 플레이어 시간 -${this.bossDamage}초`);
+
 
     if (this.scene.soundEnabled) {
       const ouchSounds = ['ouch1', 'ouch2'];
@@ -378,7 +378,7 @@ export class BossManager {
   completeBossRound() {
     if (!this.boss) return;
 
-    console.log(`[보스] 라운드 ${this.bossRound} 완료!`);
+
 
     this.bossActive = false;
     this.bossHitsRemaining = 0;
@@ -431,7 +431,7 @@ export class BossManager {
    * 보스전 클리어
    */
   completeBossMode() {
-    console.log('[보스] 보스전 클리어!');
+
     this.bossMode = false;
     this.bossActive = false;
 

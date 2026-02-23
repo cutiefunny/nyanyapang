@@ -178,7 +178,7 @@ export class AnipangScene extends Phaser.Scene {
       }
       const elapsedTime = Date.now() - this.processingStartTime;
       if (elapsedTime > 5000) {
-        console.warn('[경고] isProcessing이 5초 이상 유지됨. 강제 복구합니다.');
+
         this.isProcessing = false;
         this.processingStartTime = 0;
       }
@@ -211,11 +211,11 @@ export class AnipangScene extends Phaser.Scene {
 
       // 보스 생성 조건 체크
       if (!this.bossManager.bossMode && this.score >= this.nextBossScoreThreshold) {
-        console.log('[Score] 보스 스폰 조건 만족:', this.score);
+
         
         // 피버타임 중이면 보류, 아니면 즉시 시작
         if (this.feverTimeManager.feverTimeActive) {
-          console.log('[보스] 피버타임 중 보스 조건 만족 - 피버타임 종료 후 시작 예정');
+
           this.bossManager.pendingBossSpawn = true;
         } else {
           this.bossManager.startBossMode();
@@ -311,7 +311,13 @@ export class AnipangScene extends Phaser.Scene {
               if (this.matchChecker.checkMatches().length > 0) {
                 this.handleMatches();
               } else {
-                this.isProcessing = false;
+                // 가능한 움직임이 없는 교착 상태 확인
+                if (!this.matchChecker.canMakeAnyMove()) {
+
+                  this.breakDeadlock();
+                } else {
+                  this.isProcessing = false;
+                }
               }
             } catch (e) {
               console.error('[Error] handleMatchesAfterExplosion delayedCall 중 예외:', e);
@@ -329,6 +335,58 @@ export class AnipangScene extends Phaser.Scene {
   }
 
   /**
+   * 교착 상태 해제 (랜덤 블록을 폭탄으로 변경)
+   */
+  breakDeadlock() {
+    try {
+      const gems = this.boardManager.gems;
+      const candidates = []; // 일반 gem 후보
+
+      // 폭탄이나 개가 아닌 일반 gem 찾기
+      for (let row = 0; row < this.boardManager.boardSize.rows; row++) {
+        for (let col = 0; col < this.boardManager.boardSize.cols; col++) {
+          const gem = gems[row][col];
+          if (gem && gem.active && 
+              gem.texture.key !== 'bomb' && gem.texture.key !== 'dog') {
+            candidates.push({ gem, row, col });
+          }
+        }
+      }
+
+      if (candidates.length === 0) {
+
+        this.isProcessing = false;
+        return;
+      }
+
+      // 랜덤한 블록 선택
+      const randomIdx = Phaser.Math.Between(0, candidates.length - 1);
+      const { gem, row, col } = candidates[randomIdx];
+
+
+
+      // 기존 gem 제거
+      this.tweens.killTweensOf(gem);
+      gem.destroy();
+
+      // 폭탄으로 변경
+      const bomb = this.boardManager.spawnGem(row, col, 'bomb');
+      if (bomb) {
+        bomb.depth = 500; // 깊이 설정
+        
+        // pulse 애니메이션 추가
+        this.addPulseTween(bomb);
+        
+        // 폭탄이 터지도록 처리
+        this.time.delayedCall(100, () => {
+          this.explosionManager.explodeBomb(bomb);
+        });
+      }
+    } catch (e) {
+      console.error('[Error] breakDeadlock 중 예외:', e);
+      this.isProcessing = false;
+    }
+  }  /**
    * 매칭음 재생
    */
   playMatchSound() {

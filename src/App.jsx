@@ -57,7 +57,7 @@ function App() {
     if (!deviceId) {
       deviceId = generateDeviceId();
       localStorage.setItem('deviceId', deviceId);
-      console.log('새 deviceID 생성:', deviceId);
+
     }
     return deviceId;
   };
@@ -124,7 +124,7 @@ function App() {
     const checkMobile = () => {
       const width = window.innerWidth;
       const isMobileValue = width <= 600; // 600px 이하는 모바일로 판단
-      console.log('Screen width:', width, 'isMobile:', isMobileValue);
+
       setIsMobile(isMobileValue);
     };
     
