@@ -13,6 +13,7 @@ export class BoardManager {
     this.gemSize = gemSize;
     this.gems = [];
     this._filling = false; // fillBoard 중복 호출 방지
+    this.previousEmptySlots = new Set(); // 이전 정기 체크에서 감지된 빈 칸들 추적
   }
 
   /**
@@ -546,7 +547,7 @@ export class BoardManager {
 
   /**
    * 5초마다 호출되는 보드 정기 검사
-   * - 비어있는 부분 감지 및 채우기
+   * - 비어있는 부분 감지 및 두 번 연속 감지 시 채우기
    * - 겹친 gem 감지 및 제거 (단일 순회로 통합 최적화)
    */
   periodicBoardCheck() {
@@ -554,7 +555,8 @@ export class BoardManager {
       return; // fillBoard 진행 중이면 스킵
     }
 
-    const emptySlots = [];
+    const currentEmptySlots = [];
+    const currentEmptySet = new Set(); // 현재 감지된 빈 칸 (row,col 문자열로 저장)
     const positionMap = new Map(); // 겹침 감지용 맵
     let duplicateCount = 0;
 
@@ -565,7 +567,8 @@ export class BoardManager {
         
         // 비어있는 부분 감지
         if (gem === null || !gem.active) {
-          emptySlots.push({ row, col });
+          currentEmptySlots.push({ row, col });
+          currentEmptySet.add(`${row},${col}`);
         } else {
           // 겹침 감지: 같은 물리적 위치의 gem들을 맵에 수집
           const key = `${Math.round(gem.x)},${Math.round(gem.y)}`;
@@ -590,20 +593,107 @@ export class BoardManager {
       }
     });
 
-    // 빈 칸이 있거나 중복이 제거되었으면 채우기
-    if (emptySlots.length > 0 || duplicateCount > 0) {
-      console.log(`[보드] 정기 체크: 빈 칸 ${emptySlots.length}개, 제거된 중복 ${duplicateCount}개`);
+    // *** 두 번 연속으로 감지된 빈 칸만 채우기 ***
+    const slotsTofill = [];
+    currentEmptySet.forEach((slotKey) => {
+      if (this.previousEmptySlots.has(slotKey)) {
+        // 이전 체크에서도 비어있던 칸 -> 이번에 채우기
+        const [row, col] = slotKey.split(',').map(Number);
+        slotsTofill.push({ row, col });
+      }
+    });
+
+    // 중복이 제거되었으면 그 빈 칸들을 채우기
+    if (duplicateCount > 0) {
+      // 겹침 제거로 인한 새로운 빈 칸 감지
+      for (let row = 0; row < this.boardSize.rows; row++) {
+        for (let col = 0; col < this.boardSize.cols; col++) {
+          if (this.gems[row][col] === null) {
+            const slotKey = `${row},${col}`;
+            // 중복 제거로 생긴 새로운 빈 칸은 즉시 채우기
+            if (!currentEmptySet.has(slotKey) || !this.previousEmptySlots.has(slotKey)) {
+              slotsTofill.push({ row, col });
+            }
+          }
+        }
+      }
+    }
+
+    // 채울 빈 칸이 있으면 애니메이션 적용
+    if (slotsTofill.length > 0) {
+      console.log(`[보드] 정기 체크: 두 번 연속 감지된 빈 칸 ${slotsTofill.length}개 채우기, 제거된 중복 ${duplicateCount}개`);
       
-      // 비어있는 모든 슬롯에 gem 생성
-      emptySlots.forEach(({ row, col }) => {
+      // fillBoard()처럼 애니메이션 적용
+      const animatingGems = [];
+      
+      // 비어있는 슬롯에 gem 생성 (위에서 떨어지는 애니메이션 포함)
+      slotsTofill.forEach(({ row, col }) => {
         const type = Phaser.Math.RND.pick(this.gemTypes);
-        this.spawnGem(row, col, type);
+        const gem = this.spawnGem(row, col, type);
+        
+        if (gem) {
+          // 새로운 gem은 위에서 떨어져 내려오는 효과
+          animatingGems.push({
+            gem: gem,
+            fromY: this.getGemY(-1), // 화면 위에서
+            toY: gem.y,
+            isNew: true,
+            distance: row + 1
+          });
+        }
       });
 
-      // 일정 시간 후 최종 위치 정렬
-      this.scene.time.delayedCall(300, () => {
+      // 모든 gem에 대해 중력 애니메이션 추가
+      animatingGems.forEach((animData, index) => {
+        const { gem, fromY, toY, distance, isNew } = animData;
+        
+        // 떨어지는 거리에 따라 시간 결정
+        let duration = ANIMATION_CONFIG.GEM_FALL_BASE_DURATION + distance * ANIMATION_CONFIG.GEM_FALL_DISTANCE_MULTIPLIER;
+        
+        // 피버타임 중이면 속도 배수 적용 (2배 빠름)
+        if (this.scene.feverTimeActive) {
+          duration = Math.floor(duration / FEVER_CONFIG.FALL_SPEED_MULTIPLIER);
+        }
+        
+        const delay = index * ANIMATION_CONFIG.GEM_FALL_DELAY;
+        
+        // 새 gem: 위에서 아래로 떨어지며 튀기
+        gem.y = fromY;
+        this.scene.tweens.add({
+          targets: gem,
+          y: toY,
+          duration: duration,
+          delay: delay,
+          ease: ANIMATION_CONFIG.GEM_FALL_EASE,
+          onComplete: () => {
+            // 튀기는 효과 - 올라갔다 내려옴
+            this.scene.tweens.add({
+              targets: gem,
+              y: toY - ANIMATION_CONFIG.GEM_BOUNCE_NEW_HEIGHT,
+              duration: ANIMATION_CONFIG.GEM_BOUNCE_NEW_DURATION,
+              yoyo: true,
+              repeat: 1,
+              ease: ANIMATION_CONFIG.GEM_BOUNCE_EASE,
+              onComplete: () => {
+                // 최종 위치 강제 설정
+                gem.y = toY;
+              }
+            });
+          }
+        });
+      });
+
+      // 애니메이션이 충분히 진행된 후 최종 위치 정렬
+      const maxDuration = animatingGems.length > 0 
+        ? Math.max(200 + Math.max(...animatingGems.map(a => a.distance)) * 30, 400) + 100
+        : 100;
+
+      this.scene.time.delayedCall(maxDuration, () => {
         this.finalizePositions();
       });
     }
+
+    // *** 현재 감지된 빈 칸을 다음 체크를 위해 저장 ***
+    this.previousEmptySlots = currentEmptySet;
   }
 }
