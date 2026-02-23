@@ -122,7 +122,7 @@ export class BossManager {
 
     
     this.bossDamage = Math.floor(this.scene.score / 20000);
-    if (this.bossDamage > 40) this.bossDamage = 40;
+    if (this.bossDamage > 60) this.bossDamage = 60;
 
     console.log(`[보스] 점수: ${this.scene.score}, 클릭 필요: ${this.bossHitsRemaining}회, 공격 데미지: ${this.bossDamage}초`);
 
