@@ -82,7 +82,8 @@ export class AnipangScene extends Phaser.Scene {
     this.devMode = null;
 
     // 보스 스코어 임계값
-    this.nextBossScoreThreshold = BOSS_CONFIG.SPAWN_SCORE_THRESHOLD;
+    this.nextBossScoreThreshold = BOSS_CONFIG.SPAWN_SCORE_THRESHOLD; // wava: 20만
+    this.nextBoss2Threshold = 1000000; // Boss2: 100만
   }
 
 
@@ -190,8 +191,11 @@ export class AnipangScene extends Phaser.Scene {
     this.boardManager.fixOverlappingGems();
     
     // 보스 AI 업데이트 (BossManager에서 처리)
-    if (this.bossManager.bossMode && this.bossManager.bossActive && this.bossManager.boss) {
-      this.bossManager.update(this.game.loop.delta);
+    if (this.bossManager.bossMode && this.bossManager.bossActive) {
+      // Boss2 또는 wawa 보스 모두 지원
+      if (this.bossManager.boss || this.bossManager.boss2Sprite) {
+        this.bossManager.update(this.game.loop.delta);
+      }
     }
   }
 
@@ -209,16 +213,28 @@ export class AnipangScene extends Phaser.Scene {
         this.nextBonusThreshold += SCORE_CONFIG.BONUS_THRESHOLD;
       }
 
-      // 보스 생성 조건 체크
-      if (!this.bossManager.bossMode && this.score >= this.nextBossScoreThreshold) {
-
-        
-        // 피버타임 중이면 보류, 아니면 즉시 시작
+      // Boss2 생성 조건 체크 (1,000,000점을 넘을 때)
+      if (!this.bossManager.bossMode && this.score >= this.nextBoss2Threshold) {
+        // Boss2 스폰 (100만 이상)
         if (this.feverTimeManager.feverTimeActive) {
-
           this.bossManager.pendingBossSpawn = true;
+          this.bossManager.pendingBossType = 'boss2';
         } else {
-          this.bossManager.startBossMode();
+          this.bossManager.startBossMode('boss2');
+        }
+        // 다음 Boss2는 200만 이상
+        this.nextBoss2Threshold += 1000000;
+        // 다음 wava 보스 스폰 시점을 이 점수 이후로 설정
+        this.nextBossScoreThreshold = this.score + BOSS_CONFIG.SPAWN_SCORE_THRESHOLD;
+      } 
+      // wawa 보스 생성 조건 체크 (200,000점 단위)
+      else if (!this.bossManager.bossMode && this.score >= this.nextBossScoreThreshold) {
+        // wawa 보스 스폰 (Boss2 조건이 아닐 때만)
+        if (this.feverTimeManager.feverTimeActive) {
+          this.bossManager.pendingBossSpawn = true;
+          this.bossManager.pendingBossType = 'wawa';
+        } else {
+          this.bossManager.startBossMode('wawa');
         }
         
         this.nextBossScoreThreshold += BOSS_CONFIG.SPAWN_SCORE_THRESHOLD;

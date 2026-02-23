@@ -11,6 +11,8 @@ import bombImg from '../assets/bomb.png';
 import dogWalkImg from '../assets/dog_walk.png';
 import backgroundImg from '../assets/background.jpg';
 import bossImg from '../assets/boss1.png';
+import boss2Img from '../assets/boss2.png';
+import boss2SpriteImg from '../assets/boss_sprite.png';
 import wawaImg from '../assets/wawa.png';
 
 // 사운드 에셋
@@ -105,6 +107,8 @@ export class PreloaderScene extends Phaser.Scene {
     this.load.image('bomb', bombImg);
     this.load.image('background', backgroundImg);
     this.load.image('boss', bossImg);
+    this.load.image('boss2', boss2Img);
+    this.load.spritesheet('boss_sprite', boss2SpriteImg, { frameWidth: 200, frameHeight: 200 });
     this.load.spritesheet('dog', dogWalkImg, { frameWidth: 100, frameHeight: 100 });
     this.load.spritesheet('wawa', wawaImg, { frameWidth: BOSS_CONFIG.FRAME_WIDTH, frameHeight: BOSS_CONFIG.FRAME_HEIGHT });
     this.load.audio('ouch1', soundOuch1);

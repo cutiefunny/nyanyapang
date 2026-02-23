@@ -137,7 +137,8 @@ export const DRAG_CONFIG = {
 };
 
 export const BOSS_CONFIG = {
-  SPAWN_SCORE_THRESHOLD: 200000,  // 보스전 시작 점수 배수 기준 (20만점)
+  SPAWN_SCORE_THRESHOLD: 200000,  // 보스전 시작 점수 배수 기준 (20만점) - wawa 보스
+  BOSS2_SPAWN_SCORE_THRESHOLD: 1000000, // boss2 시작 점수 배수 기준 (100만점)
   // HITS_PER_ROUND와 ATTACK_DAMAGE는 동적으로 계산됨
   // HITS_PER_ROUND = Math.floor(현재점수 / 10000)
   // ATTACK_DAMAGE = Math.floor(현재점수 / 20000)
@@ -174,6 +175,38 @@ export const BOSS_CONFIG = {
   TOP_CENTER_HITS_STROKE: '#ff0000',
   TOP_CENTER_HITS_STROKE_WIDTH: 3,
   TOP_CENTER_HITS_Y_OFFSET: 15,  // 화면 상단에서의 Y 위치
+};
+
+export const BOSS2_CONFIG = {
+  SPAWN_SCORE_THRESHOLD: 1000000, // boss2 스폰 점수 (100만)
+  
+  // 원 설정
+  CENTER_RADIUS: 25,            // 중심 원 반지름 (클릭 영역)
+  OUTER_RADIUS_START: 100,      // 바깥 원 시작 반지름
+  OUTER_RADIUS_END: 25,         // 바깥 원 최종 반지름 (이 시점에 플레이어 데미지)
+  
+  // 시간 설정
+  SHRINK_DURATION: 1000,         // 원이 축소되는 시간
+  ATTACK_INTERVAL: 1000,        // 공격 간격 (원 축소 완료 후)
+  SPAWN_ANIMATION_DURATION: 500,
+  
+  // 색상
+  CENTER_FILL_COLOR: 0xff6b6b,    // 중심 원 색상 (빨강)
+  CENTER_STROKE_COLOR: 0xff0000,  // 중심 원 테두리
+  OUTER_FILL_COLOR: 0xffa500,     // 바깥 원 색상 (주황)
+  OUTER_STROKE_COLOR: 0xff8c00,   // 바깥 원 테두리
+  
+  // 스타일
+  CENTER_STROKE_WIDTH: 3,
+  OUTER_STROKE_WIDTH: 2,
+  
+  // 보스 에너지 및 데미지
+  TOTAL_ENERGY: 30,             // 보스2의 총 에너지 (원의 개수)
+  DAMAGE_PER_HIT: 1,            // 원 클릭 시 보스가 받는 데미지
+  DAMAGE_PER_SHRINK: 10,        // 축소 완료 시 플레이어 데미지 (초)
+  
+  // 총 라운드
+  TOTAL_ROUNDS: 1,               // 보스2 1라운드
 };
 
 export const FEVER_CONFIG = {

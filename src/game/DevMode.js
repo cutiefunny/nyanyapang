@@ -41,9 +41,10 @@ export class DevMode {
 
     const width = this.scene.scale.width;
     const padding = 8;
-    const btnW = 120;
+    const btnW = 110;
     const btnH = 36;
     const centerY = 24;
+    const secondRowY = 65;
 
     const leftX = width / 2 - btnW - padding;
     const centerX = width / 2;
@@ -90,13 +91,33 @@ export class DevMode {
     const bossZone = this.scene.add.zone(rightX, centerY, btnW, btnH).setOrigin(0.5).setInteractive().setDepth(2002);
     bossZone.on('pointerdown', () => {
       try {
-        this.scene.bossManager.startBossMode();
+        this.scene.bossManager.startBossMode('wawa');
+      } catch (e) {}
+      this.toggleDevUI();
+    });
+
+    // BOSS2 버튼
+    const boss2Btn = this.scene.add.rectangle(centerX, secondRowY, btnW, btnH, 0x333333, 0.9)
+      .setOrigin(0.5)
+      .setDepth(2000);
+    const boss2Text = this.scene.add.text(centerX, secondRowY, 'BOSS2', { fontSize: '14px', fill: '#ff6b9d', fontFamily: 'Arial' })
+      .setOrigin(0.5)
+      .setDepth(2001);
+    const boss2Zone = this.scene.add.zone(centerX, secondRowY, btnW, btnH).setOrigin(0.5).setInteractive().setDepth(2002);
+    boss2Zone.on('pointerdown', () => {
+      try {
+        this.scene.bossManager.startBossMode('boss2');
       } catch (e) {}
       this.toggleDevUI();
     });
 
     // store elements for cleanup
-    this.devUIElements = [feverBtn, feverText, feverZone, pointBtn, pointText, pointZone, bossBtn, bossText, bossZone];
+    this.devUIElements = [
+      feverBtn, feverText, feverZone,
+      pointBtn, pointText, pointZone,
+      bossBtn, bossText, bossZone,
+      boss2Btn, boss2Text, boss2Zone
+    ];
   }
 
   /**

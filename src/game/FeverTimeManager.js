@@ -65,7 +65,9 @@ export class FeverTimeManager {
     if (this.scene.bossManager.pendingBossSpawn) {
 
       this.scene.bossManager.pendingBossSpawn = false;
-      this.scene.bossManager.startBossMode();
+      const bossType = this.scene.bossManager.pendingBossType || 'wawa';
+      this.scene.bossManager.pendingBossType = null;
+      this.scene.bossManager.startBossMode(bossType);
     }
 
     this.scene.isProcessing = false;
