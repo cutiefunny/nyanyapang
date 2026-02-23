@@ -61,6 +61,13 @@ export class FeverTimeManager {
     // 플래그 맵 초기화
     this.gemTweenFlags = new WeakMap();
 
+    // 피버타임 중 보스 스폰 조건이 만족되었으면 이제 보스전 시작
+    if (this.scene.bossManager.pendingBossSpawn) {
+      console.log('[보스] 피버타임 종료 - 보류 중인 보스전 시작');
+      this.scene.bossManager.pendingBossSpawn = false;
+      this.scene.bossManager.startBossMode();
+    }
+
     this.scene.isProcessing = false;
   }
 

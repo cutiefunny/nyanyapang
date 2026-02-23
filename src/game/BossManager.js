@@ -21,6 +21,9 @@ export class BossManager {
     this.bossHitsRemaining = 0;
     this.bossHitsRemaining_current = 0;
     this.bossDamage = 0;
+    
+    // 보스 스폰 보류 상태 (피버타임 중 스폰 조건 만족 시 사용)
+    this.pendingBossSpawn = false;
 
     // 보스 AI
     this.bossAttackTimer = 0;
@@ -112,7 +115,7 @@ export class BossManager {
     }
 
     // 클릭 회수 동적 계산
-    this.bossHitsRemaining = 30 + (this.scene.score / 20000);
+    this.bossHitsRemaining = 30 + Math.floor(this.scene.score / 20000);
     if (this.bossHitsRemaining < 5) this.bossHitsRemaining = 5;
     if (this.bossHitsRemaining > 80) this.bossHitsRemaining = 80;
     this.bossHitsRemaining_current = this.bossHitsRemaining;

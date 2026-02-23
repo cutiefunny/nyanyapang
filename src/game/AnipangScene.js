@@ -212,7 +212,15 @@ export class AnipangScene extends Phaser.Scene {
       // 보스 생성 조건 체크
       if (!this.bossManager.bossMode && this.score >= this.nextBossScoreThreshold) {
         console.log('[Score] 보스 스폰 조건 만족:', this.score);
-        this.bossManager.startBossMode();
+        
+        // 피버타임 중이면 보류, 아니면 즉시 시작
+        if (this.feverTimeManager.feverTimeActive) {
+          console.log('[보스] 피버타임 중 보스 조건 만족 - 피버타임 종료 후 시작 예정');
+          this.bossManager.pendingBossSpawn = true;
+        } else {
+          this.bossManager.startBossMode();
+        }
+        
         this.nextBossScoreThreshold += BOSS_CONFIG.SPAWN_SCORE_THRESHOLD;
       }
     } catch (e) {
