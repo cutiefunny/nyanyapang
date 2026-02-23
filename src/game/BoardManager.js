@@ -546,32 +546,52 @@ export class BoardManager {
 
   /**
    * 5초마다 호출되는 보드 정기 검사
-   * - 비어있는 부분 채우기
-   * - 겹친 gem 제거
+   * - 비어있는 부분 감지 및 채우기
+   * - 겹친 gem 감지 및 제거 (단일 순회로 통합 최적화)
    */
   periodicBoardCheck() {
     if (this._filling) {
       return; // fillBoard 진행 중이면 스킵
     }
 
-    let hasEmptySlots = false;
-    let emptySlots = [];
+    const emptySlots = [];
+    const positionMap = new Map(); // 겹침 감지용 맵
+    let duplicateCount = 0;
 
-    // Step 1: 비어있는 부분 감지
+    // *** 단일 순회: 비어있는 부분과 겹침을 동시에 감지 ***
     for (let row = 0; row < this.boardSize.rows; row++) {
       for (let col = 0; col < this.boardSize.cols; col++) {
-        if (this.gems[row][col] === null || !this.gems[row][col].active) {
-          hasEmptySlots = true;
+        const gem = this.gems[row][col];
+        
+        // 비어있는 부분 감지
+        if (gem === null || !gem.active) {
           emptySlots.push({ row, col });
+        } else {
+          // 겹침 감지: 같은 물리적 위치의 gem들을 맵에 수집
+          const key = `${Math.round(gem.x)},${Math.round(gem.y)}`;
+          if (!positionMap.has(key)) positionMap.set(key, []);
+          positionMap.get(key).push({ gem, row, col });
         }
       }
     }
 
-    // Step 2: 겹친 gem 감지 및 제거
-    const duplicateCount = this.removeDuplicateGems();
+    // 겹친 gem 처리
+    positionMap.forEach((gemsAtPosition) => {
+      if (gemsAtPosition.length > 1) {
+        gemsAtPosition.sort((a, b) => a.gem.depth - b.gem.depth);
+        const keepGem = gemsAtPosition[0];
+        
+        for (let i = 1; i < gemsAtPosition.length; i++) {
+          const removeGem = gemsAtPosition[i];
+          this.gems[removeGem.row][removeGem.col] = null;
+          removeGem.gem.destroy();
+          duplicateCount++;
+        }
+      }
+    });
 
-    // Step 3: 비어있는 부분이 있으면 채우기
-    if (hasEmptySlots || duplicateCount > 0) {
+    // 빈 칸이 있거나 중복이 제거되었으면 채우기
+    if (emptySlots.length > 0 || duplicateCount > 0) {
       console.log(`[보드] 정기 체크: 빈 칸 ${emptySlots.length}개, 제거된 중복 ${duplicateCount}개`);
       
       // 비어있는 모든 슬롯에 gem 생성

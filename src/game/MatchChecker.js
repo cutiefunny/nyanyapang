@@ -8,10 +8,10 @@ export class MatchChecker {
   }
 
   /**
-   * 매칭된 gem 배열 반환
+   * 매칭된 gem 배열 반환 (Set 기반으로 중복 최적화)
    */
   checkMatches() {
-    let matches = [];
+    const matchedGems = new Set(); // Set으로 중복 방지하면서 시작
     const isSpecial = (key) => key === 'bomb' || key === 'dog';
     const gems = this.boardManager.gems;
     const rows = this.boardManager.boardSize.rows;
@@ -28,7 +28,9 @@ export class MatchChecker {
             !isSpecial(gem1.texture.key) &&
             gem1.texture.key === gem2.texture.key && 
             gem2.texture.key === gem3.texture.key) {
-          matches.push(gem1, gem2, gem3);
+          matchedGems.add(gem1);
+          matchedGems.add(gem2);
+          matchedGems.add(gem3);
         }
       }
     }
@@ -44,11 +46,14 @@ export class MatchChecker {
             !isSpecial(gem1.texture.key) &&
             gem1.texture.key === gem2.texture.key && 
             gem2.texture.key === gem3.texture.key) {
-          matches.push(gem1, gem2, gem3);
+          matchedGems.add(gem1);
+          matchedGems.add(gem2);
+          matchedGems.add(gem3);
         }
       }
     }
     
-    return [...new Set(matches)];
+    // 마지막에만 Set을 배열로 변환
+    return Array.from(matchedGems);
   }
 }
